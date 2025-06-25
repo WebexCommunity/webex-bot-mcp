@@ -198,6 +198,64 @@ def send_webex_message(
             'message': None
         }
 
+@mcp.tool()
+def get_webex_me() -> Dict[str, Any]:
+    """
+    Get information about the authenticated Webex user.
+    
+    Returns:
+        Dictionary containing the authenticated user's information
+    """
+    try:
+        # Call the Webex API to get user info
+        me_response = webex_api.people.me()
+        
+        # Convert the response to a dictionary
+        me_dict = {
+            'id': me_response.id,
+            'emails': me_response.emails,
+            'displayName': me_response.displayName,
+            'nickName': me_response.nickName,
+            'firstName': me_response.firstName,
+            'lastName': me_response.lastName,
+            'avatar': me_response.avatar,
+            'orgId': me_response.orgId,
+            'created': me_response.created,
+            'lastModified': me_response.lastModified,
+            'status': me_response.status,
+            'type': me_response.type
+        }
+        
+        # Add optional fields if they exist
+        if hasattr(me_response, 'userName') and me_response.userName:
+            me_dict['userName'] = me_response.userName
+        if hasattr(me_response, 'roles') and me_response.roles:
+            me_dict['roles'] = me_response.roles
+        if hasattr(me_response, 'licenses') and me_response.licenses:
+            me_dict['licenses'] = me_response.licenses
+        if hasattr(me_response, 'phoneNumbers') and me_response.phoneNumbers:
+            me_dict['phoneNumbers'] = me_response.phoneNumbers
+        if hasattr(me_response, 'extension') and me_response.extension:
+            me_dict['extension'] = me_response.extension
+        if hasattr(me_response, 'locationId') and me_response.locationId:
+            me_dict['locationId'] = me_response.locationId
+        if hasattr(me_response, 'addresses') and me_response.addresses:
+            me_dict['addresses'] = me_response.addresses
+        if hasattr(me_response, 'timezone') and me_response.timezone:
+            me_dict['timezone'] = me_response.timezone
+        
+        return {
+            'success': True,
+            'user': me_dict
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'user': None
+        }
+
 if __name__ == "__main__":
     # Parse command line arguments for transport type
     parser = argparse.ArgumentParser(description="Webex Bot MCP Server")
