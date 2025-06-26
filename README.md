@@ -1,11 +1,41 @@
 # Webex Bot MCP
 
-A Model Context Protocol (MCP) server that provides tools for interacting with Webex APIs using a Webex bot. This server enables automated messaging and room management through the Webex Teams platform via a bot account.
+A comprehensive Model Context Protocol (MCP) server that provides tools, resources, and prompts for interacting with Webex APIs using a Webex bot. This server enables automated messaging, room management, and team collaboration through the Webex platform.
+
+> **Powered by**: This MCP server is built on top of the excellent [Webex Python SDK](https://github.com/WebexCommunity/WebexPythonSDK) by the Webex Community. The SDK provides the robust foundation for all Webex API interactions in this project.
 
 ## Features
 
-- **List Webex Rooms**: Get a list of Webex rooms that the bot has access to, with optional filtering and sorting.
-- **Send Webex Messages**: Send messages to Webex rooms or direct messages to users as a bot, with support for text, markdown, HTML, and file attachments.
+### 🛠️ Tools (26 available)
+- **Room Management**: Create, update, list, and manage Webex rooms/spaces
+- **Message Operations**: Send messages with text, markdown, HTML, files, and mentions
+- **Membership Management**: Add, remove, and update room memberships
+- **People Management**: Search and manage organization users
+- **Dual Terminology**: Full support for both "room" and "space" terminology
+
+### 📚 Resources (6 available)
+- **Getting Started Guide**: Dynamic setup and authentication status
+- **Message Formatting**: Comprehensive formatting examples and best practices
+- **Current Configuration**: Live bot status and capabilities
+- **Troubleshooting Guide**: Common issues and solutions
+- **Security Best Practices**: Production deployment security guidelines
+- **Use Cases & Examples**: Real-world implementation patterns
+
+### 🎯 Prompts (7 available)
+- **Send Announcement**: Professional announcement templates
+- **Create Team Room**: Guided room setup with member management
+- **Bulk Message Campaign**: Multi-target messaging with rate limiting
+- **Room Management Workflow**: Comprehensive room audit and maintenance
+- **Incident Response Setup**: Emergency response coordination
+- **Bot Health Check**: Comprehensive bot assessment
+- **Compliance Audit**: Governance and policy compliance checking
+
+### 🚀 Production Features
+- **Health Monitoring**: Built-in health check endpoints
+- **Configuration Management**: Environment-based configuration
+- **Container Support**: Docker and Kubernetes deployment ready
+- **Security**: Token management, rate limiting, audit logging
+- **Observability**: Structured logging and metrics support
 
 ## Prerequisites
 
