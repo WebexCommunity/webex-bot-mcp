@@ -36,6 +36,9 @@ from tools import (
     get_webex_me, list_webex_people
 )
 
+# Import version and error handling from common
+from tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -750,6 +753,288 @@ Please help me audit the following areas:
    - Risk assessment documentation
 
 Provide a compliance report with findings, risk ratings, and remediation recommendations."""
+    }
+
+
+# ========== VERSION & METADATA RESOURCES ==========
+
+@mcp.resource("webex://meta/version")
+def server_version():
+    """Server version and compatibility information"""
+    return {
+        "name": "Webex Bot MCP",
+        "version": MCP_SERVER_VERSION,
+        "mcp_version": MCP_SPEC_VERSION,
+        "api_version": "v1",
+        "supported_features": [
+            "tools", "resources", "prompts", 
+            "streamable-http", "stdio",
+            "error-handling", "versioning"
+        ],
+        "tools_count": 26,
+        "resources_count": 8,
+        "prompts_count": 7,
+        "breaking_changes": {
+            "1.0.0": [
+                "Initial release with structured error handling",
+                "Comprehensive tool documentation",
+                "Version metadata support"
+            ]
+        },
+        "deprecation_notices": [],
+        "next_version_preview": {
+            "version": "1.1.0",
+            "planned_features": [
+                "Enhanced file attachment support",
+                "Webhook event handling",
+                "Advanced rate limiting"
+            ]
+        }
+    }
+
+@mcp.resource("webex://meta/changelog")
+def changelog():
+    """Version changelog and migration guide"""
+    return """# Webex Bot MCP Changelog
+
+## v1.0.0 (2025-06-26) - Initial Release
+### Added
+- Complete Webex Teams API integration
+- 26 comprehensive tools for room, message, membership, and people management
+- Dual terminology support (rooms/spaces)
+- Structured error handling with specific error codes
+- Version metadata and compatibility information
+- Production-ready health monitoring
+- Container deployment support
+
+### Features
+- **Room Management**: Create, update, list, and manage Webex rooms/spaces
+- **Message Operations**: Send messages with text, markdown, HTML, files, and mentions
+- **Membership Management**: Add, remove, and update room memberships
+- **People Management**: Search and manage organization users
+- **Error Handling**: Structured responses with retry guidance
+- **Documentation**: Comprehensive schemas and examples
+
+### Error Codes
+- E001-E003: Client argument errors
+- E401-E404: Authorization and access errors
+- E500-E504: Server and network errors
+- E600-E602: Webex-specific errors
+
+### Migration Guide
+This is the initial release. Future versions will include migration instructions here.
+"""
+
+@mcp.resource("webex://schema/tools")
+def tools_schema():
+    """Complete schema documentation for all available tools"""
+    return {
+        "version": "1.0.0",
+        "tools": {
+            "send_webex_message": {
+                "description": "Send a message to a Webex room or person",
+                "parameters": {
+                    "room_id": {
+                        "type": "string",
+                        "pattern": "^Y2lzY29zcGFyazovL3VzL1JPT00v",
+                        "description": "Webex room identifier (mutually exclusive with person fields)"
+                    },
+                    "to_person_id": {
+                        "type": "string", 
+                        "description": "Person ID for direct message"
+                    },
+                    "to_person_email": {
+                        "type": "string",
+                        "format": "email",
+                        "description": "Person email for direct message"
+                    },
+                    "text": {
+                        "type": "string",
+                        "maxLength": 7439,
+                        "description": "Plain text message content"
+                    },
+                    "markdown": {
+                        "type": "string",
+                        "maxLength": 7439,
+                        "description": "Markdown formatted content"
+                    }
+                },
+                "required_one_of": [
+                    ["room_id"],
+                    ["to_person_id"],
+                    ["to_person_email"]
+                ],
+                "required_one_of_content": [
+                    ["text"],
+                    ["markdown"]
+                ],
+                "returns": {
+                    "success": {"type": "boolean"},
+                    "data": {"type": "object"},
+                    "error_code": {"type": "string"},
+                    "message": {"type": "string"}
+                },
+                "errors": {
+                    "E001": "Invalid arguments - missing required fields",
+                    "E002": "Missing required content field",
+                    "E401": "Unauthorized - invalid bot token",
+                    "E404": "Room or person not found",
+                    "E503": "Rate limited - retry after delay"
+                }
+            },
+            "create_webex_room": {
+                "description": "Create a new Webex room",
+                "parameters": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100,
+                        "description": "Room title"
+                    },
+                    "team_id": {
+                        "type": "string",
+                        "description": "Optional team ID to create room in"
+                    }
+                },
+                "required": ["title"],
+                "returns": {
+                    "success": {"type": "boolean"},
+                    "data": {"type": "object"}
+                }
+            }
+        },
+        "error_handling": {
+            "client_errors": {
+                "E001": {"description": "Invalid arguments", "retry": False},
+                "E002": {"description": "Missing required field", "retry": False},
+                "E401": {"description": "Unauthorized", "retry": False},
+                "E404": {"description": "Not found", "retry": False}
+            },
+            "server_errors": {
+                "E500": {"description": "Internal error", "retry": True},
+                "E503": {"description": "Rate limited", "retry": True, "delay": 60},
+                "E502": {"description": "Network error", "retry": True, "delay": 30}
+            }
+        }
+    }
+
+@mcp.resource("webex://schema/error-codes")
+def error_codes_reference():
+    """Complete reference for all error codes"""
+    return {
+        "version": "1.0.0",
+        "error_categories": {
+            "client_errors": {
+                "range": "E001-E099", 
+                "description": "Invalid requests that should not be retried",
+                "codes": {
+                    "E001": {
+                        "name": "INVALID_ARGUMENTS",
+                        "description": "Required arguments missing or invalid format",
+                        "retry": False,
+                        "example": "Missing room_id, to_person_id, or to_person_email"
+                    },
+                    "E002": {
+                        "name": "MISSING_REQUIRED_FIELD", 
+                        "description": "Required field not provided",
+                        "retry": False,
+                        "example": "Must specify either text or markdown content"
+                    },
+                    "E003": {
+                        "name": "INVALID_FIELD_VALUE",
+                        "description": "Field value is invalid or out of range", 
+                        "retry": False,
+                        "example": "Message text exceeds 7439 character limit"
+                    }
+                }
+            },
+            "auth_errors": {
+                "range": "E401-E404",
+                "description": "Authentication and authorization errors",
+                "codes": {
+                    "E401": {
+                        "name": "UNAUTHORIZED",
+                        "description": "Invalid or expired bot token",
+                        "retry": False,
+                        "solution": "Check WEBEX_ACCESS_TOKEN environment variable"
+                    },
+                    "E403": {
+                        "name": "FORBIDDEN", 
+                        "description": "Bot lacks permission for this operation",
+                        "retry": False,
+                        "solution": "Ensure bot is added to the room"
+                    },
+                    "E404": {
+                        "name": "NOT_FOUND",
+                        "description": "Room, person, or resource not found",
+                        "retry": False,
+                        "solution": "Verify room/person IDs are correct"
+                    }
+                }
+            },
+            "server_errors": {
+                "range": "E500-E599",
+                "description": "Server errors that may be temporary",
+                "codes": {
+                    "E500": {
+                        "name": "INTERNAL_ERROR",
+                        "description": "Unexpected server error",
+                        "retry": True,
+                        "delay": 30
+                    },
+                    "E502": {
+                        "name": "BAD_GATEWAY",
+                        "description": "Upstream service error",
+                        "retry": True,
+                        "delay": 60
+                    },
+                    "E503": {
+                        "name": "RATE_LIMITED",
+                        "description": "API rate limit exceeded", 
+                        "retry": True,
+                        "delay": 60,
+                        "solution": "Implement exponential backoff"
+                    }
+                }
+            },
+            "webex_errors": {
+                "range": "E600-E699",
+                "description": "Webex-specific errors",
+                "codes": {
+                    "E600": {
+                        "name": "WEBEX_API_ERROR",
+                        "description": "Webex API returned an error",
+                        "retry": "depends",
+                        "solution": "Check Webex API status"
+                    },
+                    "E601": {
+                        "name": "NETWORK_ERROR", 
+                        "description": "Network connectivity issue",
+                        "retry": True,
+                        "delay": 30
+                    },
+                    "E602": {
+                        "name": "TOKEN_EXPIRED",
+                        "description": "Bot access token has expired",
+                        "retry": False,
+                        "solution": "Regenerate bot token in Webex Developer Portal"
+                    }
+                }
+            }
+        },
+        "retry_guidance": {
+            "exponential_backoff": {
+                "initial_delay": 1,
+                "max_delay": 300,
+                "multiplier": 2,
+                "jitter": True
+            },
+            "max_retries": 3,
+            "circuit_breaker": {
+                "failure_threshold": 5,
+                "recovery_timeout": 60
+            }
+        }
     }
 
 

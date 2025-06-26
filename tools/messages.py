@@ -2,7 +2,7 @@
 Webex Message management tools.
 """
 from typing import Optional, Dict, Any, List
-from .common import webex_api
+from .common import webex_api, create_error_response, create_success_response, WebexErrorCodes
 
 
 def format_mention_by_email(email: str, display_name: Optional[str] = None) -> str:
@@ -119,23 +119,66 @@ def send_webex_message(
         parent_id: Parent message ID for threaded replies
     
     Returns:
-        Dictionary containing the sent message details and metadata
+        Standardized response dictionary with success/error information
+        
+    Examples:
+        # Send to room
+        result = send_webex_message(
+            room_id="Y2lzY29zcGFyazovL3VzL1JPT00vYmJjZWIx",
+            text="Hello team!"
+        )
+        
+        # Send direct message
+        result = send_webex_message(
+            to_person_email="user@company.com",
+            markdown="**Important update:** Please review the report"
+        )
     """
     try:
-        # Validate required parameters
+        # Validate required parameters - destination
         if not (room_id or to_person_id or to_person_email):
-            return {
-                'success': False,
-                'error': 'Must specify either room_id, to_person_id, or to_person_email',
-                'message': None
-            }
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_ARGUMENTS,
+                message="Must specify either room_id, to_person_id, or to_person_email",
+                details={
+                    "required_fields": ["room_id", "to_person_id", "to_person_email"],
+                    "provided_fields": []
+                }
+            )
         
+        # Validate required parameters - content
         if not (text or markdown or html or files):
-            return {
-                'success': False,
-                'error': 'Must specify at least one of: text, markdown, html, or files',
-                'message': None
-            }
+            return create_error_response(
+                error_code=WebexErrorCodes.MISSING_REQUIRED_FIELD,
+                message="Must specify at least one of: text, markdown, html, or files",
+                details={
+                    "required_fields": ["text", "markdown", "html", "files"],
+                    "provided_fields": []
+                }
+            )
+        
+        # Validate content length limits
+        if text and len(text) > 7439:
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                message=f"Text content exceeds maximum length of 7439 characters (provided: {len(text)})",
+                details={
+                    "field": "text",
+                    "max_length": 7439,
+                    "provided_length": len(text)
+                }
+            )
+        
+        if markdown and len(markdown) > 7439:
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                message=f"Markdown content exceeds maximum length of 7439 characters (provided: {len(markdown)})",
+                details={
+                    "field": "markdown",
+                    "max_length": 7439,
+                    "provided_length": len(markdown)
+                }
+            )
         
         # Build parameters dict, only including non-None values
         params = {}
@@ -147,6 +190,88 @@ def send_webex_message(
             params['toPersonId'] = to_person_id
         elif to_person_email:
             params['toPersonEmail'] = to_person_email
+        
+        # Content parameters
+        if text:
+            params['text'] = text
+        if markdown:
+            params['markdown'] = markdown
+        if html:
+            params['html'] = html
+        if files:
+            params['files'] = files
+        if parent_id:
+            params['parentId'] = parent_id
+        
+        # Send the message
+        message = webex_api.messages.create(**params)
+        
+        return create_success_response(
+            data={
+                'id': message.id,
+                'roomId': message.roomId,
+                'text': message.text,
+                'markdown': getattr(message, 'markdown', None),
+                'html': getattr(message, 'html', None),
+                'files': getattr(message, 'files', None),
+                'personId': message.personId,
+                'personEmail': message.personEmail,
+                'created': message.created.isoformat() if hasattr(message.created, 'isoformat') else str(message.created)
+            },
+            metadata={
+                'operation': 'send_message',
+                'destination_type': 'room' if room_id else 'direct',
+                'content_type': 'markdown' if markdown else 'html' if html else 'text',
+                'has_files': bool(files),
+                'is_threaded': bool(parent_id)
+            }
+        )
+        
+    except Exception as e:
+        error_str = str(e).lower()
+        
+        # Check for specific error types and return appropriate responses
+        if 'rate limit' in error_str or 'too many requests' in error_str:
+            return create_error_response(
+                error_code=WebexErrorCodes.RATE_LIMITED,
+                message="API rate limit exceeded. Please retry after delay.",
+                temporary=True,
+                retry_after_seconds=60
+            )
+        
+        elif 'unauthorized' in error_str or 'invalid token' in error_str:
+            return create_error_response(
+                error_code=WebexErrorCodes.UNAUTHORIZED,
+                message="Invalid or expired bot token. Please check WEBEX_ACCESS_TOKEN."
+            )
+        
+        elif 'not found' in error_str or '404' in error_str:
+            return create_error_response(
+                error_code=WebexErrorCodes.NOT_FOUND,
+                message="Room or person not found. Please verify the ID/email is correct."
+            )
+        
+        elif 'forbidden' in error_str or '403' in error_str:
+            return create_error_response(
+                error_code=WebexErrorCodes.FORBIDDEN,
+                message="Bot lacks permission for this operation. Ensure bot is added to the room."
+            )
+        
+        elif 'network' in error_str or 'connection' in error_str:
+            return create_error_response(
+                error_code=WebexErrorCodes.NETWORK_ERROR,
+                message="Network connectivity issue. Please retry.",
+                temporary=True,
+                retry_after_seconds=30
+            )
+        
+        else:
+            return create_error_response(
+                error_code=WebexErrorCodes.WEBEX_API_ERROR,
+                message=f"Webex API error: {str(e)}",
+                temporary=True,
+                details={'original_error': str(e)}
+            )
         
         # Content parameters
         if text:
