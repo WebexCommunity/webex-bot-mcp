@@ -238,3 +238,180 @@ Add this configuration to your `claude_desktop_config.json`:
 3. **Copy the configuration**: Add the configuration to your Claude Desktop config file
 4. **Restart Claude Desktop**: Close and reopen Claude Desktop to load the new configuration
 5. **Test the MCP server**: You can now use the MCP server in Claude Desktop to interact with Webex rooms and send messages
+
+## Sample Prompts for AI Agents
+
+This MCP server enables AI agents to interact with Webex messaging through natural language prompts. Here are practical examples of how agents can utilize the Webex bot:
+
+### Incident Management & Operations
+
+**"Create an incident room and notify the on-call team"**
+```
+Create a new Webex room called "INCIDENT-2025-001-Database-Outage" and send a message to it with:
+- Incident severity: P1
+- Affected service: Customer Database
+- Initial symptoms: Connection timeouts
+- Next steps: Investigating root cause
+Then send direct messages to the on-call engineers:
+- john.doe@company.com
+- jane.smith@company.com
+- ops-lead@company.com
+Alert them about the new incident room and ask them to join immediately.
+```
+
+**"Send maintenance notifications to multiple teams"**
+```
+Send a maintenance notification to the following Webex rooms:
+- "Engineering Team"
+- "Customer Support" 
+- "Operations"
+- "QA Team"
+
+Message should include:
+- Maintenance window: Tonight 11 PM - 2 AM EST
+- Affected services: Payment processing, user authentication
+- Expected downtime: 15 minutes
+- Contact person: DevOps team for questions
+```
+
+### Automated Monitoring & Alerts
+
+**"Send system health updates to operations rooms"**
+```
+Check our monitoring dashboard and send a daily health summary to the "Operations" room including:
+- Server uptime status
+- Database performance metrics
+- API response times
+- Any alerts or warnings from the last 24 hours
+Format it nicely with markdown for easy reading.
+```
+
+**"Alert about CI/CD pipeline failures"**
+```
+The build pipeline for project "customer-portal" just failed on the main branch.
+Send an alert to the "Engineering Team" room with:
+- Build ID: #2045
+- Failed stage: Integration Tests
+- Error summary: Database connection timeout
+- Assigned to: @backend-team
+- Link to build logs: [provide the link]
+```
+
+### Customer Support & Communication
+
+**"Escalate support tickets to engineering"**
+```
+We have a P1 customer issue that needs engineering attention.
+Create a room called "CUSTOMER-ISSUE-Netflix-Streaming" and invite:
+- support-manager@company.com
+- engineering-lead@company.com
+- customer-success@company.com
+
+Send the initial context:
+- Customer: Netflix
+- Issue: Streaming service integration failing
+- Impact: 50,000+ users affected
+- Ticket ID: SUP-12345
+- Customer contact: tech-contact@netflix.com
+```
+
+**"Send release notes to stakeholders"**
+```
+We just deployed version 3.2.1 to production. Send release notes to:
+- "Product Team" room
+- "Customer Success" room
+- "Executive Updates" room
+
+Include:
+- New features: Advanced analytics dashboard, mobile push notifications
+- Bug fixes: 12 critical issues resolved
+- Performance improvements: 30% faster page load times
+- Breaking changes: None
+- Rollback plan: Available if needed
+```
+
+### Team Coordination & Project Management
+
+**"Coordinate cross-team project updates"**
+```
+Send a weekly project status update to the "Project Alpha" room and individual updates to:
+- engineering-manager@company.com
+- product-owner@company.com
+- design-lead@company.com
+
+Status should include:
+- Completed this week: User authentication module
+- In progress: Payment integration
+- Blocked: Waiting for security review
+- Next week's goals: Complete checkout flow
+- Risks: Potential delay in third-party API integration
+```
+
+**"Schedule and announce team meetings"**
+```
+Send meeting invitations to the "Architecture Review" room for next Tuesday at 2 PM EST.
+Agenda:
+- Review microservices communication patterns
+- Discuss database sharding strategy
+- Plan for Q3 scalability improvements
+- Action items from last meeting
+
+Also send individual reminders to:
+- senior-architect@company.com
+- database-admin@company.com
+- platform-engineer@company.com
+```
+
+### Compliance & Security Alerts
+
+**"Send security incident notifications"**
+```
+We detected a potential security incident. Send immediate alerts to:
+- "Security Team" room
+- "IT Leadership" room
+- Direct messages to CISO and IT Director
+
+Include:
+- Incident type: Unusual login patterns detected
+- Affected systems: Customer portal
+- Action taken: Accounts temporarily locked
+- Investigation status: In progress
+- Next steps: Full security audit initiated
+```
+
+**"Compliance audit reminders"**
+```
+Send SOC 2 audit preparation reminders to compliance stakeholders:
+- "Compliance Team" room
+- "Engineering Leadership" room
+- Individual messages to department heads
+
+Reminder should include:
+- Audit date: Next Friday
+- Required documentation: Security policies, access logs, change management records
+- Point of contact: compliance-officer@company.com
+- Preparation checklist: [attach file]
+```
+
+### Integration & Automation Examples
+
+**"Multi-channel deployment notifications"**
+```
+After a successful production deployment, automatically send notifications to:
+1. "Engineering Team" room - Technical details and metrics
+2. "Product Team" room - Feature summary and user impact
+3. "Customer Support" room - What to expect and how to help customers
+4. Direct message to release manager with detailed deployment log
+```
+
+**"Escalation workflows"**
+```
+If a P1 incident isn't acknowledged within 15 minutes:
+1. Send escalation alert to "Critical Incidents" room
+2. Page the on-call manager directly
+3. Create a conference bridge and share details
+4. Notify executive team if incident exceeds 1 hour
+5. Update incident status in all relevant rooms
+```
+
+These examples demonstrate how AI agents can use natural language to orchestrate complex Webex messaging workflows, making incident response, team coordination, and operational communications more efficient and automated.
