@@ -23,7 +23,7 @@ from tools import (
     # Space aliases  
     list_webex_spaces, create_webex_space, update_webex_space, get_webex_space,
     # Message functions
-    send_webex_message, list_webex_messages,
+    send_webex_message, list_webex_messages, send_webex_message_with_mentions,
     # Space message aliases
     send_webex_space_message, list_webex_space_messages,
     # Membership functions
@@ -60,6 +60,7 @@ mcp.tool()(get_webex_space)
 
 # Message management tools
 mcp.tool()(send_webex_message)
+mcp.tool()(send_webex_message_with_mentions)
 mcp.tool()(list_webex_messages)
 
 # Space message aliases

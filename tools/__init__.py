@@ -11,7 +11,7 @@ from .rooms import (
 )
 
 from .messages import (
-    send_webex_message, list_webex_messages,
+    send_webex_message, list_webex_messages, send_webex_message_with_mentions,
     send_webex_space_message, list_webex_space_messages
 )
 
@@ -30,7 +30,7 @@ __all__ = [
     # Space aliases
     'list_webex_spaces', 'create_webex_space', 'update_webex_space', 'get_webex_space',
     # Message functions
-    'send_webex_message', 'list_webex_messages',
+    'send_webex_message', 'list_webex_messages', 'send_webex_message_with_mentions',
     # Space message aliases
     'send_webex_space_message', 'list_webex_space_messages',
     # Membership functions
