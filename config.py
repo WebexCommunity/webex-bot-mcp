@@ -103,7 +103,7 @@ class WebexConfig:
         if self.timeout_seconds <= 0:
             issues.append("Timeout seconds must be positive")
         
-        if self.log_level not in ["DEBUG", "INFO", "WARN", "ERROR"]:
+        if self.log_level not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
             issues.append("Log level must be one of: DEBUG, INFO, WARN, ERROR")
         
         if self.log_format not in ["text", "json"]:
