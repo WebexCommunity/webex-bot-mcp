@@ -1,7 +1,7 @@
 [project]
 name = "webex-bot-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for Webex — send messages, manage rooms, and automate team communication via AI assistants"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -9,3 +9,6 @@ dependencies = [
     "fastmcp>=2.9.0",
     "webexpythonsdk>=2.0.4",
 ]
+
+[project.scripts]
+webex-bot-mcp = "main:main"

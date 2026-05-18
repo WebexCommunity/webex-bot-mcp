@@ -1038,18 +1038,17 @@ def error_codes_reference():
     }
 
 
-if __name__ == "__main__":
-    # Parse command line arguments for transport type
+def main():
     parser = argparse.ArgumentParser(description="Webex Bot MCP Server")
     parser.add_argument(
-        "--transport", 
-        choices=["stdio", "streamable-http"], 
+        "--transport",
+        choices=["stdio", "streamable-http"],
         default="stdio",
         help="Transport type to use (default: stdio)"
     )
     parser.add_argument(
         "--host",
-        default="localhost", 
+        default="localhost",
         help="Host to bind to for streamable-http transport (default: localhost)"
     )
     parser.add_argument(
@@ -1058,10 +1057,14 @@ if __name__ == "__main__":
         default=8000,
         help="Port to bind to for streamable-http transport (default: 8000)"
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.transport == "streamable-http":
         mcp.run(transport="streamable-http", host=args.host, port=args.port)
     else:
         mcp.run()
+
+
+if __name__ == "__main__":
+    main()

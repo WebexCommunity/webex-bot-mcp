@@ -226,19 +226,48 @@ Use `--help` to see all available options:
 uv run main.py --help
 ```
 
-## Claude Desktop Integration
+## Installing the MCP Server
 
-To use this MCP server with Claude Desktop, you'll need to add the server configuration to your Claude Desktop config file.
+### Recommended: Run with uvx (no clone required)
+
+[uvx](https://docs.astral.sh/uv/guides/tools/) runs the server directly from a local checkout without a separate install step. After cloning the repo once, you can reference it from any AI client config:
+
+```bash
+uvx --from /path/to/webex-bot-mcp webex-bot-mcp
+```
+
+This is the simplest invocation to put in your client config files (see sections below).
+
+---
+
+## Claude Desktop Integration
 
 ### Configuration File Location
 
-The Claude Desktop configuration file is located at:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-### Standard Configuration (Stdio Transport)
+### Configuration (uvx — recommended)
 
-Add this configuration to your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "webex-bot-mcp": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "/path/to/your/webex-bot-mcp",
+        "webex-bot-mcp"
+      ],
+      "env": {
+        "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
+      }
+    }
+  }
+}
+```
+
+### Configuration (uv run — alternative)
 
 ```json
 {
@@ -259,15 +288,67 @@ Add this configuration to your `claude_desktop_config.json`:
 }
 ```
 
-**Note**: If `uv` is not in your system PATH, replace `"uv"` with the full path to uv (e.g., `"/Users/username/.cargo/bin/uv"` on macOS/Linux or `"C:\\Users\\username\\.cargo\\bin\\uv.exe"` on Windows). See the [Installing uv](#installing-uv) section above for how to find the full path.
+**Note**: If `uv` is not in your system PATH, use the full path (e.g., `"/Users/username/.cargo/bin/uv"` on macOS/Linux). See [Installing uv](#installing-uv) above for how to find it.
 
 ### Setup Steps
 
-1. **Replace the placeholder**: Change `your_webex_bot_access_token_here` to your actual Webex bot access token
-2. **Update the path**: Change `/path/to/your/webex-bot-mcp` to match your actual project directory location
-3. **Copy the configuration**: Add the configuration to your Claude Desktop config file
-4. **Restart Claude Desktop**: Close and reopen Claude Desktop to load the new configuration
-5. **Test the MCP server**: You can now use the MCP server in Claude Desktop to interact with Webex rooms and send messages
+1. Replace `your_webex_bot_access_token_here` with your actual Webex bot access token
+2. Replace `/path/to/your/webex-bot-mcp` with the actual directory where you cloned this repo
+3. Add the configuration block to your Claude Desktop config file
+4. Restart Claude Desktop
+5. The Webex tools will now be available in your Claude conversations
+
+---
+
+## Claude Code CLI Integration
+
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) supports MCP servers via a `.mcp.json` file in your project directory or via your global Claude config.
+
+### Project-level config (`.mcp.json`)
+
+Copy `.mcp.json.example` to `.mcp.json` in any project where you want Webex tools available, then fill in your token and path:
+
+```bash
+cp /path/to/webex-bot-mcp/.mcp.json.example /your/project/.mcp.json
+```
+
+Edit the file:
+
+```json
+{
+  "mcpServers": {
+    "webex-bot-mcp": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/webex-bot-mcp", "webex-bot-mcp"],
+      "env": {
+        "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
+      }
+    }
+  }
+}
+```
+
+### Global config (`~/.claude.json`)
+
+To make Webex tools available in every Claude Code session, add the same `mcpServers` block to `~/.claude.json`.
+
+---
+
+## OpenAI Codex / Other MCP Clients
+
+Any MCP-compatible client can connect using stdio transport. Point your client at the same command:
+
+```
+uvx --from /path/to/webex-bot-mcp webex-bot-mcp
+```
+
+Or for HTTP transport (useful for remote clients or services that prefer HTTP over stdio):
+
+```bash
+uvx --from /path/to/webex-bot-mcp webex-bot-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+```
+
+Then connect your client to `http://localhost:8000`.
 
 ## Sample Prompts for AI Agents
 
