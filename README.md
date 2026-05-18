@@ -88,74 +88,17 @@ For your bot to send messages to rooms, it must be added as a member:
    - Users can start a 1:1 conversation with your bot by searching for its username
    - Or you can send direct messages using the user's email address
 
-## Installing uv
+## Development Setup (contributors only)
 
-This project uses [uv](https://docs.astral.sh/uv/) for Python package management. You'll need to install uv first.
+If you want to modify the server locally:
 
-### Install uv
-
-**macOS and Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Windows:**
-```bash
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-**Alternative installation methods:**
-- **Homebrew (macOS)**: `brew install uv`
-- **pip**: `pip install uv`
-- **pipx**: `pipx install uv`
-
-### Find uv Path for Claude Desktop
-
-For Claude Desktop configuration, you may need the full path to uv. You can find it using:
-
-```bash
-which uv
-```
-
-This will return something like:
-- **macOS/Linux**: `/Users/username/.cargo/bin/uv` or `/usr/local/bin/uv`
-- **Windows**: `C:\Users\username\.cargo\bin\uv.exe`
-
-If `which uv` doesn't work, try:
-```bash
-whereis uv
-```
-
-**Note**: If you installed uv via the official installer, it's typically located at:
-- **macOS/Linux**: `~/.cargo/bin/uv`
-- **Windows**: `%USERPROFILE%\.cargo\bin\uv.exe`
-
-You can use either the full path or just `uv` in your Claude Desktop configuration if uv is in your system PATH.
-
-## Setup
-
-1. **Install dependencies**:
+1. **Install dependencies**: `uv sync`
+2. **Configure environment**: `cp .env.example .env` and add your `WEBEX_ACCESS_TOKEN`
+3. **Test your token**:
    ```bash
-   uv sync
+   curl -H "Authorization: Bearer YOUR_BOT_TOKEN" https://webexapis.com/v1/people/me
    ```
-
-2. **Configure environment variables**:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and add your Webex bot access token:
-   ```
-   WEBEX_ACCESS_TOKEN=your_bot_access_token_here
-   ```
-
-3. **Test Your Bot Token**:
-   You can verify your bot token works by testing it:
-   ```bash
-   curl -H "Authorization: Bearer YOUR_BOT_TOKEN" \
-        https://webexapis.com/v1/people/me
-   ```
-   This should return your bot's information.
+4. **Run locally**: `uv run main.py`
 
 ## Common Use Cases for Bot Notifications
 
@@ -226,17 +169,27 @@ Use `--help` to see all available options:
 uv run main.py --help
 ```
 
-## Installing the MCP Server
+## Quick Install (no clone required)
 
-### Recommended: Run with uvx (no clone required)
+Install [uv](https://docs.astral.sh/uv/) if you don't have it, then point any MCP client at this one-liner — no cloning or local setup needed:
 
-[uvx](https://docs.astral.sh/uv/guides/tools/) runs the server directly from a local checkout without a separate install step. After cloning the repo once, you can reference it from any AI client config:
-
+**macOS and Linux:**
 ```bash
-uvx --from /path/to/webex-bot-mcp webex-bot-mcp
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-This is the simplest invocation to put in your client config files (see sections below).
+**Windows:**
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+The server command to use in all config files below:
+
+```
+uvx --from git+https://github.com/WebexCommunity/webex-bot-mcp webex-bot-mcp
+```
+
+`uvx` is the Python equivalent of `npx` — it fetches and runs the package directly from GitHub without a permanent install.
 
 ---
 
@@ -247,7 +200,7 @@ This is the simplest invocation to put in your client config files (see sections
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-### Configuration (uvx — recommended)
+### Configuration
 
 ```json
 {
@@ -256,7 +209,7 @@ This is the simplest invocation to put in your client config files (see sections
       "command": "uvx",
       "args": [
         "--from",
-        "/path/to/your/webex-bot-mcp",
+        "git+https://github.com/WebexCommunity/webex-bot-mcp",
         "webex-bot-mcp"
       ],
       "env": {
@@ -267,19 +220,23 @@ This is the simplest invocation to put in your client config files (see sections
 }
 ```
 
-### Configuration (uv run — alternative)
+### Setup Steps
+
+1. Replace `your_webex_bot_access_token_here` with your actual Webex bot access token
+2. Add the configuration block to your Claude Desktop config file
+3. Restart Claude Desktop
+4. The Webex tools will now be available in your Claude conversations
+
+### Local checkout alternative
+
+If you've cloned the repo and want to use your local copy (e.g., for development):
 
 ```json
 {
   "mcpServers": {
     "webex-bot-mcp": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/your/webex-bot-mcp",
-        "run",
-        "main.py"
-      ],
+      "command": "uvx",
+      "args": ["--from", "/path/to/your/webex-bot-mcp", "webex-bot-mcp"],
       "env": {
         "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
       }
@@ -287,16 +244,6 @@ This is the simplest invocation to put in your client config files (see sections
   }
 }
 ```
-
-**Note**: If `uv` is not in your system PATH, use the full path (e.g., `"/Users/username/.cargo/bin/uv"` on macOS/Linux). See [Installing uv](#installing-uv) above for how to find it.
-
-### Setup Steps
-
-1. Replace `your_webex_bot_access_token_here` with your actual Webex bot access token
-2. Replace `/path/to/your/webex-bot-mcp` with the actual directory where you cloned this repo
-3. Add the configuration block to your Claude Desktop config file
-4. Restart Claude Desktop
-5. The Webex tools will now be available in your Claude conversations
 
 ---
 
@@ -306,20 +253,18 @@ This is the simplest invocation to put in your client config files (see sections
 
 ### Project-level config (`.mcp.json`)
 
-Copy `.mcp.json.example` to `.mcp.json` in any project where you want Webex tools available, then fill in your token and path:
-
-```bash
-cp /path/to/webex-bot-mcp/.mcp.json.example /your/project/.mcp.json
-```
-
-Edit the file:
+Create a `.mcp.json` file in your project root (or copy `.mcp.json.example` from this repo):
 
 ```json
 {
   "mcpServers": {
     "webex-bot-mcp": {
       "command": "uvx",
-      "args": ["--from", "/path/to/webex-bot-mcp", "webex-bot-mcp"],
+      "args": [
+        "--from",
+        "git+https://github.com/WebexCommunity/webex-bot-mcp",
+        "webex-bot-mcp"
+      ],
       "env": {
         "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
       }
@@ -336,16 +281,17 @@ To make Webex tools available in every Claude Code session, add the same `mcpSer
 
 ## OpenAI Codex / Other MCP Clients
 
-Any MCP-compatible client can connect using stdio transport. Point your client at the same command:
+Any MCP-compatible client can connect using stdio transport with the same command:
 
 ```
-uvx --from /path/to/webex-bot-mcp webex-bot-mcp
+uvx --from git+https://github.com/WebexCommunity/webex-bot-mcp webex-bot-mcp
 ```
 
-Or for HTTP transport (useful for remote clients or services that prefer HTTP over stdio):
+For HTTP transport (useful for remote clients or services that prefer HTTP over stdio):
 
 ```bash
-uvx --from /path/to/webex-bot-mcp webex-bot-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+uvx --from git+https://github.com/WebexCommunity/webex-bot-mcp webex-bot-mcp \
+  --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 Then connect your client to `http://localhost:8000`.

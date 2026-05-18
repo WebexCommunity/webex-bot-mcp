@@ -2,7 +2,11 @@
   "mcpServers": {
     "webex-bot-mcp": {
       "command": "uvx",
-      "args": ["--from", "/path/to/webex-bot-mcp", "webex-bot-mcp"],
+      "args": [
+        "--from",
+        "git+https://github.com/WebexCommunity/webex-bot-mcp",
+        "webex-bot-mcp"
+      ],
       "env": {
         "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
       }
