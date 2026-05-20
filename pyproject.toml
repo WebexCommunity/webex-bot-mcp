@@ -1,11 +1,11 @@
 [project]
 name = "webex-bot-mcp"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "Model Context Protocol server for Webex Teams — manage rooms, messages, and memberships via AI assistants"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "dotenv>=0.9.9",
+    "python-dotenv>=1.0.0",
     "fastmcp>=2.9.0",
     "webexpythonsdk>=2.0.4",
 ]

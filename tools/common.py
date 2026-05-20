@@ -2,8 +2,8 @@
 Common utilities and shared components for Webex Bot MCP tools.
 """
 import os
+from datetime import datetime, timezone
 from typing import Dict, Any
-from dotenv import load_dotenv
 from webexpythonsdk import WebexAPI
 
 # Server version information
@@ -58,7 +58,7 @@ def create_error_response(
         'success': False,
         'error_code': error_code,
         'message': message,
-        'timestamp': os.environ.get('REQUEST_TIMESTAMP', ''),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'server_version': MCP_SERVER_VERSION
     }
     
@@ -88,7 +88,7 @@ def create_success_response(data: Dict[str, Any], metadata: Dict[str, Any] = Non
     response = {
         'success': True,
         'data': data,
-        'timestamp': os.environ.get('REQUEST_TIMESTAMP', ''),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
         'server_version': MCP_SERVER_VERSION
     }
     
@@ -98,10 +98,7 @@ def create_success_response(data: Dict[str, Any], metadata: Dict[str, Any] = Non
     return response
 
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Initialize Webex SDK
+# Initialize Webex SDK — token must be set before importing this module
 webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
 if not webex_access_token:
     raise ValueError("WEBEX_ACCESS_TOKEN environment variable is required")

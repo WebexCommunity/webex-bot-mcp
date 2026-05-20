@@ -21,31 +21,32 @@ from fastmcp import FastMCP
 # Import all tool functions from the tools package
 from tools import (
     # Room functions
-    list_webex_rooms, create_webex_room, update_webex_room, get_webex_room,
-    # Space aliases  
-    list_webex_spaces, create_webex_space, update_webex_space, get_webex_space,
+    list_webex_rooms, create_webex_room, update_webex_room,
+    get_webex_room, delete_webex_room,
+    # Space aliases
+    list_webex_spaces, create_webex_space, update_webex_space,
+    get_webex_space, delete_webex_space,
     # Message functions
-    send_webex_message, list_webex_messages, send_webex_message_with_mentions,
+    send_webex_message, send_webex_message_with_mentions,
+    list_webex_messages, delete_webex_message,
     # Space message aliases
     send_webex_space_message, list_webex_space_messages,
     # Membership functions
-    list_webex_memberships, add_webex_membership, update_webex_membership,
+    list_webex_memberships, add_webex_membership,
+    update_webex_membership, delete_webex_membership,
     # Space membership aliases
     list_webex_space_memberships, add_webex_space_membership,
     # People functions
-    get_webex_me, list_webex_people
+    get_webex_me, list_webex_people,
 )
 
 # Import version and error handling from common
 from tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
 
-# Load environment variables from .env file
+# Load environment variables before importing tools (tools/common.py reads them at import time)
 load_dotenv()
 
-# Validate required environment variables
 webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
-if not webex_access_token:
-    raise ValueError("WEBEX_ACCESS_TOKEN environment variable is required")
 
 # Initialize FastMCP with a name for the bot
 mcp = FastMCP("Webex Bot MCP")
@@ -56,17 +57,20 @@ mcp.tool()(list_webex_rooms)
 mcp.tool()(create_webex_room)
 mcp.tool()(update_webex_room)
 mcp.tool()(get_webex_room)
+mcp.tool()(delete_webex_room)
 
 # Space aliases (same functionality as rooms but with "space" terminology)
 mcp.tool()(list_webex_spaces)
 mcp.tool()(create_webex_space)
 mcp.tool()(update_webex_space)
 mcp.tool()(get_webex_space)
+mcp.tool()(delete_webex_space)
 
 # Message management tools
 mcp.tool()(send_webex_message)
 mcp.tool()(send_webex_message_with_mentions)
 mcp.tool()(list_webex_messages)
+mcp.tool()(delete_webex_message)
 
 # Space message aliases
 mcp.tool()(send_webex_space_message)
@@ -76,6 +80,7 @@ mcp.tool()(list_webex_space_messages)
 mcp.tool()(list_webex_memberships)
 mcp.tool()(add_webex_membership)
 mcp.tool()(update_webex_membership)
+mcp.tool()(delete_webex_membership)
 
 # Space membership aliases
 mcp.tool()(list_webex_space_memberships)
@@ -767,12 +772,12 @@ def server_version():
         "mcp_version": MCP_SPEC_VERSION,
         "api_version": "v1",
         "supported_features": [
-            "tools", "resources", "prompts", 
+            "tools", "resources", "prompts",
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 26,
-        "resources_count": 8,
+        "tools_count": 31,
+        "resources_count": 10,
         "prompts_count": 7,
         "breaking_changes": {
             "1.0.0": [

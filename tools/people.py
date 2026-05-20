@@ -2,71 +2,73 @@
 Webex People management tools.
 """
 from typing import Optional, Dict, Any
-from .common import webex_api
+from .common import webex_api, create_error_response, create_success_response, WebexErrorCodes
+
+
+def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
+    error_str = str(e).lower()
+    if 'unauthorized' in error_str or 'invalid token' in error_str:
+        return create_error_response(WebexErrorCodes.UNAUTHORIZED,
+                                     "Invalid or expired bot token.")
+    if 'not found' in error_str or '404' in error_str:
+        return create_error_response(WebexErrorCodes.NOT_FOUND,
+                                     "Person not found. Verify the ID or email is correct.")
+    if 'forbidden' in error_str or '403' in error_str:
+        return create_error_response(WebexErrorCodes.FORBIDDEN,
+                                     "Bot lacks permission for this operation.")
+    if 'rate limit' in error_str or 'too many requests' in error_str:
+        return create_error_response(WebexErrorCodes.RATE_LIMITED,
+                                     "API rate limit exceeded. Please retry after delay.",
+                                     temporary=True, retry_after_seconds=60)
+    if 'network' in error_str or 'connection' in error_str:
+        return create_error_response(WebexErrorCodes.NETWORK_ERROR,
+                                     "Network connectivity issue. Please retry.",
+                                     temporary=True, retry_after_seconds=30)
+    return create_error_response(WebexErrorCodes.WEBEX_API_ERROR,
+                                 f"Webex API error: {e}",
+                                 temporary=True, details={'original_error': str(e)})
+
+
+def _person_to_dict(person) -> Dict[str, Any]:
+    d: Dict[str, Any] = {
+        'id': person.id,
+        'emails': person.emails,
+        'displayName': person.displayName,
+        'nickName': person.nickName,
+        'firstName': person.firstName,
+        'lastName': person.lastName,
+        'avatar': person.avatar,
+        'orgId': person.orgId,
+        'created': person.created,
+        'status': person.status,
+        'type': person.type,
+    }
+    for attr in ('userName', 'lastModified', 'roles', 'licenses',
+                 'phoneNumbers', 'extension', 'locationId', 'addresses', 'timezone'):
+        val = getattr(person, attr, None)
+        if val:
+            d[attr] = val
+    return d
 
 
 def get_webex_me() -> Dict[str, Any]:
     """
-    Get information about the authenticated Webex user.
-    
+    Get information about the authenticated Webex bot.
+
     Returns:
-        Dictionary containing the authenticated user's information
+        Standardized response dictionary with success/error information
     """
     try:
-        # Call the Webex API to get user info
-        me_response = webex_api.people.me()
-        
-        # Convert the response to a dictionary
-        me_dict = {
-            'id': me_response.id,
-            'emails': me_response.emails,
-            'displayName': me_response.displayName,
-            'nickName': me_response.nickName,
-            'firstName': me_response.firstName,
-            'lastName': me_response.lastName,
-            'avatar': me_response.avatar,
-            'orgId': me_response.orgId,
-            'created': me_response.created,
-            'lastModified': me_response.lastModified,
-            'status': me_response.status,
-            'type': me_response.type
-        }
-        
-        # Add optional fields if they exist
-        if hasattr(me_response, 'userName') and me_response.userName:
-            me_dict['userName'] = me_response.userName
-        if hasattr(me_response, 'roles') and me_response.roles:
-            me_dict['roles'] = me_response.roles
-        if hasattr(me_response, 'licenses') and me_response.licenses:
-            me_dict['licenses'] = me_response.licenses
-        if hasattr(me_response, 'phoneNumbers') and me_response.phoneNumbers:
-            me_dict['phoneNumbers'] = me_response.phoneNumbers
-        if hasattr(me_response, 'extension') and me_response.extension:
-            me_dict['extension'] = me_response.extension
-        if hasattr(me_response, 'locationId') and me_response.locationId:
-            me_dict['locationId'] = me_response.locationId
-        if hasattr(me_response, 'addresses') and me_response.addresses:
-            me_dict['addresses'] = me_response.addresses
-        if hasattr(me_response, 'timezone') and me_response.timezone:
-            me_dict['timezone'] = me_response.timezone
-        
-        return {
-            'success': True,
-            'user': me_dict
-        }
-        
+        me = webex_api.people.me()
+        return create_success_response(data={'user': _person_to_dict(me)})
     except Exception as e:
-        return {
-            'success': False,
-            'error': str(e),
-            'user': None
-        }
+        return _map_exception_to_error(e)
 
 
 def list_webex_people(
     email: Optional[str] = None,
     display_name: Optional[str] = None,
-    id: Optional[str] = None,
+    person_id: Optional[str] = None,
     org_id: Optional[str] = None,
     calling_data: Optional[bool] = None,
     location_id: Optional[str] = None,
@@ -74,28 +76,27 @@ def list_webex_people(
 ) -> Dict[str, Any]:
     """
     List people in the organization or search for specific people.
-    
+
     Args:
         email: Email address to search for
         display_name: Display name to search for
-        id: Person ID to get specific person
+        person_id: Person ID to look up a specific person
         org_id: Organization ID to filter by
         calling_data: Include calling data in response
         location_id: Location ID to filter by
         max_results: Maximum number of people to return (default 100, max 1000)
-    
+
     Returns:
-        Dictionary containing the list of people and metadata
+        Standardized response dictionary with success/error information
     """
     try:
-        # Build parameters dict
-        params = {}
+        params: Dict[str, Any] = {}
         if email:
             params['email'] = email
         if display_name:
             params['displayName'] = display_name
-        if id:
-            params['id'] = id
+        if person_id:
+            params['id'] = person_id
         if org_id:
             params['orgId'] = org_id
         if calling_data is not None:
@@ -104,60 +105,11 @@ def list_webex_people(
             params['locationId'] = location_id
         if max_results:
             params['max'] = max_results
-        
-        # Call the Webex API
-        people_response = webex_api.people.list(**params)
-        
-        # Convert the response to a list of dictionaries
-        people_list = []
-        for person in people_response:
-            person_dict = {
-                'id': person.id,
-                'emails': person.emails,
-                'displayName': person.displayName,
-                'nickName': person.nickName,
-                'firstName': person.firstName,
-                'lastName': person.lastName,
-                'avatar': person.avatar,
-                'orgId': person.orgId,
-                'created': person.created,
-                'status': person.status,
-                'type': person.type
-            }
-            
-            # Add optional fields if they exist
-            if hasattr(person, 'userName') and person.userName:
-                person_dict['userName'] = person.userName
-            if hasattr(person, 'lastModified') and person.lastModified:
-                person_dict['lastModified'] = person.lastModified
-            if hasattr(person, 'roles') and person.roles:
-                person_dict['roles'] = person.roles
-            if hasattr(person, 'licenses') and person.licenses:
-                person_dict['licenses'] = person.licenses
-            if hasattr(person, 'phoneNumbers') and person.phoneNumbers:
-                person_dict['phoneNumbers'] = person.phoneNumbers
-            if hasattr(person, 'extension') and person.extension:
-                person_dict['extension'] = person.extension
-            if hasattr(person, 'locationId') and person.locationId:
-                person_dict['locationId'] = person.locationId
-            if hasattr(person, 'addresses') and person.addresses:
-                person_dict['addresses'] = person.addresses
-            if hasattr(person, 'timezone') and person.timezone:
-                person_dict['timezone'] = person.timezone
-                
-            people_list.append(person_dict)
-        
-        return {
-            'success': True,
-            'people': people_list,
-            'count': len(people_list),
-            'filters_applied': params
-        }
-        
+
+        people = [_person_to_dict(p) for p in webex_api.people.list(**params)]
+        return create_success_response(
+            data={'people': people},
+            metadata={'count': len(people), 'filters_applied': params}
+        )
     except Exception as e:
-        return {
-            'success': False,
-            'error': str(e),
-            'people': [],
-            'count': 0
-        }
+        return _map_exception_to_error(e)
