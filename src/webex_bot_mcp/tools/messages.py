@@ -105,6 +105,30 @@ def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
     )
 
 
+_SUPPORTED_CARD_VERSIONS = {"1.0", "1.1", "1.2", "1.3"}
+_SUPPORTED_CARD_STYLES = {"default", "emphasis", "good", "warning", "attention"}
+
+
+def _build_adaptive_card_attachment(
+    card_body: List[Dict[str, Any]],
+    card_actions: Optional[List[Dict[str, Any]]],
+    card_version: str,
+) -> Dict[str, Any]:
+    """Build the Webex-compatible attachment envelope for an Adaptive Card."""
+    content: Dict[str, Any] = {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": card_version,
+        "body": card_body,
+    }
+    if card_actions:
+        content["actions"] = card_actions
+    return {
+        "contentType": "application/vnd.microsoft.card.adaptive",
+        "content": content,
+    }
+
+
 def _build_message_params(
     room_id: Optional[str],
     to_person_id: Optional[str],
@@ -390,6 +414,135 @@ def delete_webex_message(message_id: str) -> Dict[str, Any]:
         return _map_exception_to_error(e)
 
 
+def send_webex_adaptive_card(
+    room_id: Optional[str] = None,
+    to_person_id: Optional[str] = None,
+    to_person_email: Optional[str] = None,
+    card_body: Optional[List[Dict[str, Any]]] = None,
+    fallback_text: Optional[str] = None,
+    card_actions: Optional[List[Dict[str, Any]]] = None,
+    card_version: str = "1.3",
+    parent_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Send an Adaptive Card message to a Webex room or person.
+
+    Adaptive Cards are rich, interactive message attachments. Clients that do not
+    support cards will display fallback_text instead.
+
+    Args:
+        room_id: Room ID to send the card to (use this OR to_person_id/to_person_email)
+        to_person_id: Person ID to send a direct card to
+        to_person_email: Person email to send a direct card to
+        card_body: List of Adaptive Card body elements (required, non-empty). Each element
+                   must have a "type" field (e.g. "TextBlock", "Image", "ColumnSet").
+                   Use build_webex_adaptive_card to generate this from high-level inputs.
+        fallback_text: Plain-text fallback shown to clients that do not support cards (required)
+        card_actions: Optional list of action objects (Action.OpenUrl, Action.Submit, etc.)
+        card_version: Adaptive Card schema version — one of "1.0", "1.1", "1.2", "1.3" (default "1.3")
+        parent_id: Parent message ID for threaded replies
+
+    Returns:
+        Standardized response dictionary with success/error information
+
+    Examples:
+        result = send_webex_adaptive_card(
+            room_id="Y2lzY29zcGFyazovL3VzL1JPT00v...",
+            fallback_text="Build passed",
+            card_body=[
+                {"type": "TextBlock", "text": "Build Passed", "weight": "Bolder", "size": "Medium"},
+                {"type": "TextBlock", "text": "All 42 tests green", "color": "Good"},
+            ],
+            card_actions=[
+                {"type": "Action.OpenUrl", "title": "View Logs", "url": "https://ci.example.com"}
+            ],
+        )
+    """
+    try:
+        if not (room_id or to_person_id or to_person_email):
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_ARGUMENTS,
+                message="Must specify either room_id, to_person_id, or to_person_email",
+                details={"required_one_of": ["room_id", "to_person_id", "to_person_email"]}
+            )
+
+        if not fallback_text or not fallback_text.strip():
+            return create_error_response(
+                error_code=WebexErrorCodes.MISSING_REQUIRED_FIELD,
+                message="fallback_text is required and must not be blank (displayed to clients that do not support cards)",
+                details={"field": "fallback_text"}
+            )
+
+        if card_body is None:
+            return create_error_response(
+                error_code=WebexErrorCodes.MISSING_REQUIRED_FIELD,
+                message="card_body is required",
+                details={"field": "card_body"}
+            )
+
+        if not isinstance(card_body, list) or len(card_body) == 0:
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                message="card_body must be a non-empty list of card element dicts",
+                details={"field": "card_body"}
+            )
+
+        for i, element in enumerate(card_body):
+            if not isinstance(element, dict) or "type" not in element:
+                return create_error_response(
+                    error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                    message=f"card_body element at index {i} must be a dict with a 'type' field",
+                    details={"field": "card_body", "element_index": i}
+                )
+
+        if card_version not in _SUPPORTED_CARD_VERSIONS:
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                message=f"card_version must be one of {sorted(_SUPPORTED_CARD_VERSIONS)}",
+                details={"field": "card_version", "provided": card_version,
+                         "allowed": sorted(_SUPPORTED_CARD_VERSIONS)}
+            )
+
+        if card_actions:
+            for i, action in enumerate(card_actions):
+                if not isinstance(action, dict) or "type" not in action:
+                    return create_error_response(
+                        error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                        message=f"card_actions element at index {i} must be a dict with a 'type' field",
+                        details={"field": "card_actions", "element_index": i}
+                    )
+
+        params: Dict[str, Any] = {}
+        if room_id:
+            params['roomId'] = room_id
+        elif to_person_id:
+            params['toPersonId'] = to_person_id
+        elif to_person_email:
+            params['toPersonEmail'] = to_person_email
+
+        params['text'] = fallback_text
+        params['attachments'] = [_build_adaptive_card_attachment(card_body, card_actions, card_version)]
+        if parent_id:
+            params['parentId'] = parent_id
+
+        message = webex_api.messages.create(**params)
+
+        return create_success_response(
+            data=_message_to_dict(message),
+            metadata={
+                'operation': 'send_adaptive_card',
+                'destination_type': 'room' if room_id else 'direct',
+                'card_version': card_version,
+                'body_element_count': len(card_body),
+                'has_actions': bool(card_actions),
+                'is_threaded': bool(parent_id),
+            }
+        )
+
+    except Exception as e:
+        return _map_exception_to_error(e)
+
+
 # Space message aliases — "room" and "space" are synonymous in Webex
 
 def send_webex_space_message(
@@ -431,6 +584,45 @@ def send_webex_space_message(
     )
 
 
+def send_webex_space_adaptive_card(
+    space_id: Optional[str] = None,
+    to_person_id: Optional[str] = None,
+    to_person_email: Optional[str] = None,
+    card_body: Optional[List[Dict[str, Any]]] = None,
+    fallback_text: Optional[str] = None,
+    card_actions: Optional[List[Dict[str, Any]]] = None,
+    card_version: str = "1.3",
+    parent_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Send an Adaptive Card to a Webex space or person.
+    Note: This is an alias for send_webex_adaptive_card — "room" and "space" are synonymous in Webex.
+
+    Args:
+        space_id: Space ID to send the card to (use this OR to_person_id/to_person_email)
+        to_person_id: Person ID to send a direct card to
+        to_person_email: Person email to send a direct card to
+        card_body: List of Adaptive Card body elements (required, non-empty)
+        fallback_text: Plain-text fallback for clients that do not support cards (required)
+        card_actions: Optional list of action objects
+        card_version: Adaptive Card schema version — "1.0", "1.1", "1.2", or "1.3" (default "1.3")
+        parent_id: Parent message ID for threaded replies
+
+    Returns:
+        Standardized response dictionary with success/error information
+    """
+    return send_webex_adaptive_card(
+        room_id=space_id,
+        to_person_id=to_person_id,
+        to_person_email=to_person_email,
+        card_body=card_body,
+        fallback_text=fallback_text,
+        card_actions=card_actions,
+        card_version=card_version,
+        parent_id=parent_id,
+    )
+
+
 def list_webex_space_messages(
     space_id: str,
     mentioned_people: Optional[str] = None,
@@ -459,3 +651,116 @@ def list_webex_space_messages(
         before_message=before_message,
         max_results=max_results
     )
+
+
+def build_webex_adaptive_card(
+    title: str,
+    body_text: Optional[str] = None,
+    subtitle: Optional[str] = None,
+    image_url: Optional[str] = None,
+    facts: Optional[List[Dict[str, str]]] = None,
+    actions: Optional[List[Dict[str, Any]]] = None,
+    style: str = "default",
+) -> Dict[str, Any]:
+    """
+    Build an Adaptive Card from high-level inputs without hand-crafting the schema.
+
+    Returns card_body and card_actions ready to pass directly to send_webex_adaptive_card.
+    Makes no API calls — pure construction only.
+
+    Args:
+        title: Card title displayed as bold text (required)
+        body_text: Optional body paragraph displayed below the title/subtitle
+        subtitle: Optional subtitle displayed below the title in muted text
+        image_url: Optional image URL displayed in the card
+        facts: Optional list of {"title": "...", "value": "..."} key-value pairs
+               displayed as a FactSet table
+        actions: Optional list of action dicts. Each must have "type" ("url" or "submit")
+                 and "title". URL actions also need "url"; submit actions accept optional "data".
+                 Example: [{"type": "url", "title": "Open", "url": "https://example.com"}]
+        style: Container accent color — "default", "emphasis", "good", "warning", or "attention"
+
+    Returns:
+        Dict with "card_body" and "card_actions" keys ready for send_webex_adaptive_card,
+        or a standardized error response dict if validation fails.
+
+    Examples:
+        card = build_webex_adaptive_card(
+            title="Deployment Complete",
+            subtitle="Production • v2.3.1",
+            body_text="All health checks passed.",
+            facts=[{"title": "Region", "value": "us-east-1"}, {"title": "Duration", "value": "4m 12s"}],
+            actions=[{"type": "url", "title": "View Dashboard", "url": "https://dash.example.com"}],
+            style="good",
+        )
+        result = send_webex_adaptive_card(room_id="...", fallback_text="Deployment Complete", **card)
+    """
+    if not title or not title.strip():
+        return create_error_response(
+            error_code=WebexErrorCodes.MISSING_REQUIRED_FIELD,
+            message="title is required and must not be blank",
+            details={"field": "title"}
+        )
+
+    if style not in _SUPPORTED_CARD_STYLES:
+        return create_error_response(
+            error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+            message=f"style must be one of {sorted(_SUPPORTED_CARD_STYLES)}",
+            details={"field": "style", "provided": style, "allowed": sorted(_SUPPORTED_CARD_STYLES)}
+        )
+
+    if facts:
+        for i, fact in enumerate(facts):
+            if not isinstance(fact, dict) or "title" not in fact or "value" not in fact:
+                return create_error_response(
+                    error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                    message=f"facts element at index {i} must be a dict with 'title' and 'value' keys",
+                    details={"field": "facts", "element_index": i}
+                )
+
+    if actions:
+        for i, action in enumerate(actions):
+            if not isinstance(action, dict) or action.get("type") not in {"url", "submit"}:
+                return create_error_response(
+                    error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                    message=f"actions element at index {i} must have 'type' of 'url' or 'submit'",
+                    details={"field": "actions", "element_index": i, "allowed_types": ["url", "submit"]}
+                )
+            if not action.get("title"):
+                return create_error_response(
+                    error_code=WebexErrorCodes.INVALID_FIELD_VALUE,
+                    message=f"actions element at index {i} is missing required 'title'",
+                    details={"field": "actions", "element_index": i}
+                )
+
+    body: List[Dict[str, Any]] = []
+
+    body.append({"type": "TextBlock", "text": title, "weight": "Bolder", "size": "Medium", "wrap": True})
+
+    if subtitle:
+        body.append({"type": "TextBlock", "text": subtitle, "isSubtle": True, "spacing": "None", "wrap": True})
+
+    if image_url:
+        body.append({"type": "Image", "url": image_url, "size": "Medium"})
+
+    if body_text:
+        body.append({"type": "TextBlock", "text": body_text, "wrap": True})
+
+    if facts:
+        body.append({
+            "type": "FactSet",
+            "facts": [{"title": f["title"], "value": f["value"]} for f in facts]
+        })
+
+    container: Dict[str, Any] = {"type": "Container", "items": body}
+    if style != "default":
+        container["style"] = style
+
+    card_actions: List[Dict[str, Any]] = []
+    for a in (actions or []):
+        if a["type"] == "url":
+            card_actions.append({"type": "Action.OpenUrl", "title": a["title"], "url": a["url"]})
+        elif a["type"] == "submit":
+            card_actions.append({"type": "Action.Submit", "title": a["title"], "data": a.get("data", {})})
+
+    return {"card_body": [container], "card_actions": card_actions}

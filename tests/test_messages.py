@@ -32,6 +32,9 @@ from webex_bot_mcp.tools.messages import (            # noqa: E402
     send_webex_message,
     send_webex_message_with_mentions,
     list_webex_messages,
+    send_webex_adaptive_card,
+    send_webex_space_adaptive_card,
+    build_webex_adaptive_card,
 )
 from webex_bot_mcp.tools.common import (              # noqa: E402
     create_error_response,
@@ -335,6 +338,340 @@ class TestConfig(unittest.TestCase):
         finally:
             if env_backup:
                 os.environ["WEBEX_ACCESS_TOKEN"] = env_backup
+
+
+# ── Adaptive card sending ─────────────────────────────────────────────────────
+
+_MINIMAL_BODY = [{"type": "TextBlock", "text": "Hello"}]
+_MINIMAL_ACTIONS = [{"type": "Action.OpenUrl", "title": "Open", "url": "https://example.com"}]
+
+
+def _send_card(**kwargs):
+    mock_api = MagicMock()
+    mock_api.messages.create.return_value = _fake_message()
+    with patch.object(_msg_mod, 'webex_api', mock_api):
+        result = send_webex_adaptive_card(**kwargs)
+    return result, mock_api
+
+
+class TestSendWebexAdaptiveCard(unittest.TestCase):
+
+    # Validation — destination
+    def test_missing_destination_returns_e001(self):
+        r, _ = _send_card(card_body=_MINIMAL_BODY, fallback_text="hi")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_ARGUMENTS)
+
+    # Validation — fallback_text
+    def test_missing_fallback_text_returns_e002(self):
+        r, _ = _send_card(room_id="R1", card_body=_MINIMAL_BODY)
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.MISSING_REQUIRED_FIELD)
+
+    def test_blank_fallback_text_returns_e002(self):
+        r, _ = _send_card(room_id="R1", card_body=_MINIMAL_BODY, fallback_text="   ")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.MISSING_REQUIRED_FIELD)
+
+    # Validation — card_body
+    def test_missing_card_body_returns_e002(self):
+        r, _ = _send_card(room_id="R1", fallback_text="hi")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.MISSING_REQUIRED_FIELD)
+
+    def test_empty_card_body_returns_e003(self):
+        r, _ = _send_card(room_id="R1", fallback_text="hi", card_body=[])
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+
+    def test_non_list_card_body_returns_e003(self):
+        r, _ = _send_card(room_id="R1", fallback_text="hi", card_body={"type": "TextBlock"})
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+
+    def test_card_body_element_missing_type_returns_e003(self):
+        r, _ = _send_card(room_id="R1", fallback_text="hi", card_body=[{"text": "no type"}])
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+        self.assertEqual(r['details']['element_index'], 0)
+
+    # Validation — card_version
+    def test_invalid_card_version_returns_e003(self):
+        r, _ = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY, card_version="2.0")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+
+    def test_valid_card_versions_all_accepted(self):
+        for v in ("1.0", "1.1", "1.2", "1.3"):
+            r, _ = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY, card_version=v)
+            self.assertTrue(r['success'], f"version {v} should be accepted")
+
+    # Validation — card_actions
+    def test_action_element_missing_type_returns_e003(self):
+        r, _ = _send_card(
+            room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY,
+            card_actions=[{"title": "No type"}]
+        )
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+        self.assertEqual(r['details']['element_index'], 0)
+
+    # API call structure
+    def test_attachments_sent_as_list_of_one(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        call_kwargs = mock_api.messages.create.call_args[1]
+        self.assertIsInstance(call_kwargs['attachments'], list)
+        self.assertEqual(len(call_kwargs['attachments']), 1)
+
+    def test_attachment_content_type(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        att = mock_api.messages.create.call_args[1]['attachments'][0]
+        self.assertEqual(att['contentType'], "application/vnd.microsoft.card.adaptive")
+
+    def test_attachment_schema(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        content = mock_api.messages.create.call_args[1]['attachments'][0]['content']
+        self.assertEqual(content['$schema'], "http://adaptivecards.io/schemas/adaptive-card.json")
+        self.assertEqual(content['type'], "AdaptiveCard")
+
+    def test_fallback_text_sent_as_text_param(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="Fallback!", card_body=_MINIMAL_BODY)
+        self.assertEqual(mock_api.messages.create.call_args[1]['text'], "Fallback!")
+
+    def test_card_body_in_attachment_content(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        content = mock_api.messages.create.call_args[1]['attachments'][0]['content']
+        self.assertEqual(content['body'], _MINIMAL_BODY)
+
+    def test_card_actions_in_attachment_when_provided(self):
+        _, mock_api = _send_card(
+            room_id="R1", fallback_text="hi",
+            card_body=_MINIMAL_BODY, card_actions=_MINIMAL_ACTIONS
+        )
+        content = mock_api.messages.create.call_args[1]['attachments'][0]['content']
+        self.assertIn('actions', content)
+        self.assertEqual(content['actions'], _MINIMAL_ACTIONS)
+
+    def test_no_actions_key_when_not_provided(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        content = mock_api.messages.create.call_args[1]['attachments'][0]['content']
+        self.assertNotIn('actions', content)
+
+    def test_room_id_routes_to_room_id_param(self):
+        _, mock_api = _send_card(room_id="ROOM1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        self.assertEqual(mock_api.messages.create.call_args[1]['roomId'], "ROOM1")
+
+    def test_to_person_email_routes_correctly(self):
+        _, mock_api = _send_card(
+            to_person_email="user@example.com", fallback_text="hi", card_body=_MINIMAL_BODY
+        )
+        self.assertEqual(mock_api.messages.create.call_args[1]['toPersonEmail'], "user@example.com")
+
+    def test_parent_id_included_when_provided(self):
+        _, mock_api = _send_card(
+            room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY, parent_id="PARENT"
+        )
+        self.assertEqual(mock_api.messages.create.call_args[1]['parentId'], "PARENT")
+
+    def test_no_parent_id_when_not_provided(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        self.assertNotIn('parentId', mock_api.messages.create.call_args[1])
+
+    def test_default_card_version_is_1_3(self):
+        _, mock_api = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        content = mock_api.messages.create.call_args[1]['attachments'][0]['content']
+        self.assertEqual(content['version'], "1.3")
+
+    def test_custom_card_version_used(self):
+        _, mock_api = _send_card(
+            room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY, card_version="1.2"
+        )
+        content = mock_api.messages.create.call_args[1]['attachments'][0]['content']
+        self.assertEqual(content['version'], "1.2")
+
+    # Response shape
+    def test_success_response_shape(self):
+        r, _ = _send_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        self.assertTrue(r['success'])
+        self.assertIn('data', r)
+        self.assertEqual(r['metadata']['operation'], 'send_adaptive_card')
+        self.assertEqual(r['metadata']['card_version'], '1.3')
+        self.assertFalse(r['metadata']['has_actions'])
+        self.assertEqual(r['metadata']['body_element_count'], 1)
+
+    def test_has_actions_true_when_actions_provided(self):
+        r, _ = _send_card(
+            room_id="R1", fallback_text="hi",
+            card_body=_MINIMAL_BODY, card_actions=_MINIMAL_ACTIONS
+        )
+        self.assertTrue(r['metadata']['has_actions'])
+
+    def test_api_exception_returns_error_response(self):
+        mock_api = MagicMock()
+        mock_api.messages.create.side_effect = Exception("network error")
+        with patch.object(_msg_mod, 'webex_api', mock_api):
+            r = send_webex_adaptive_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
+        self.assertFalse(r['success'])
+        self.assertIn('error_code', r)
+
+
+class TestSendWebexSpaceAdaptiveCard(unittest.TestCase):
+
+    def test_delegates_space_id_as_room_id(self):
+        mock_api = MagicMock()
+        mock_api.messages.create.return_value = _fake_message()
+        with patch.object(_msg_mod, 'webex_api', mock_api):
+            r = send_webex_space_adaptive_card(
+                space_id="SID", fallback_text="hi", card_body=_MINIMAL_BODY
+            )
+        self.assertTrue(r['success'])
+        self.assertEqual(mock_api.messages.create.call_args[1]['roomId'], "SID")
+
+    def test_missing_destination_returns_e001(self):
+        mock_api = MagicMock()
+        with patch.object(_msg_mod, 'webex_api', mock_api):
+            r = send_webex_space_adaptive_card(fallback_text="hi", card_body=_MINIMAL_BODY)
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_ARGUMENTS)
+
+    def test_to_person_email_passes_through(self):
+        mock_api = MagicMock()
+        mock_api.messages.create.return_value = _fake_message()
+        with patch.object(_msg_mod, 'webex_api', mock_api):
+            r = send_webex_space_adaptive_card(
+                to_person_email="u@x.com", fallback_text="hi", card_body=_MINIMAL_BODY
+            )
+        self.assertTrue(r['success'])
+        self.assertEqual(mock_api.messages.create.call_args[1]['toPersonEmail'], "u@x.com")
+
+
+# ── Card builder ──────────────────────────────────────────────────────────────
+
+class TestBuildWebexAdaptiveCard(unittest.TestCase):
+
+    def test_title_only_returns_single_container(self):
+        r = build_webex_adaptive_card(title="Hello")
+        self.assertIn('card_body', r)
+        self.assertIn('card_actions', r)
+        self.assertEqual(len(r['card_body']), 1)
+        self.assertEqual(r['card_body'][0]['type'], 'Container')
+        items = r['card_body'][0]['items']
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['type'], 'TextBlock')
+        self.assertEqual(items[0]['text'], 'Hello')
+        self.assertEqual(items[0]['weight'], 'Bolder')
+
+    def test_card_actions_empty_when_none_provided(self):
+        r = build_webex_adaptive_card(title="Hi")
+        self.assertEqual(r['card_actions'], [])
+
+    def test_subtitle_adds_subtle_text_block(self):
+        r = build_webex_adaptive_card(title="T", subtitle="Sub")
+        items = r['card_body'][0]['items']
+        self.assertEqual(len(items), 2)
+        subtitle_block = items[1]
+        self.assertEqual(subtitle_block['type'], 'TextBlock')
+        self.assertEqual(subtitle_block['text'], 'Sub')
+        self.assertTrue(subtitle_block['isSubtle'])
+
+    def test_image_url_adds_image_element(self):
+        r = build_webex_adaptive_card(title="T", image_url="https://img.example.com/x.png")
+        types = [el['type'] for el in r['card_body'][0]['items']]
+        self.assertIn('Image', types)
+
+    def test_body_text_adds_text_block(self):
+        r = build_webex_adaptive_card(title="T", body_text="Details here")
+        types = [el['type'] for el in r['card_body'][0]['items']]
+        self.assertIn('TextBlock', types)
+        texts = [el['text'] for el in r['card_body'][0]['items'] if el['type'] == 'TextBlock']
+        self.assertIn("Details here", texts)
+
+    def test_facts_adds_fact_set(self):
+        r = build_webex_adaptive_card(
+            title="T", facts=[{"title": "Region", "value": "us-east-1"}]
+        )
+        types = [el['type'] for el in r['card_body'][0]['items']]
+        self.assertIn('FactSet', types)
+        fact_set = next(el for el in r['card_body'][0]['items'] if el['type'] == 'FactSet')
+        self.assertEqual(fact_set['facts'][0]['title'], 'Region')
+        self.assertEqual(fact_set['facts'][0]['value'], 'us-east-1')
+
+    def test_url_action_maps_to_open_url(self):
+        r = build_webex_adaptive_card(
+            title="T",
+            actions=[{"type": "url", "title": "Go", "url": "https://example.com"}]
+        )
+        self.assertEqual(len(r['card_actions']), 1)
+        self.assertEqual(r['card_actions'][0]['type'], 'Action.OpenUrl')
+        self.assertEqual(r['card_actions'][0]['url'], 'https://example.com')
+
+    def test_submit_action_maps_to_action_submit(self):
+        r = build_webex_adaptive_card(
+            title="T",
+            actions=[{"type": "submit", "title": "OK", "data": {"action": "confirm"}}]
+        )
+        self.assertEqual(r['card_actions'][0]['type'], 'Action.Submit')
+        self.assertEqual(r['card_actions'][0]['data']['action'], 'confirm')
+
+    def test_style_applied_to_container(self):
+        r = build_webex_adaptive_card(title="T", style="good")
+        self.assertEqual(r['card_body'][0]['style'], 'good')
+
+    def test_default_style_omits_style_key(self):
+        r = build_webex_adaptive_card(title="T", style="default")
+        self.assertNotIn('style', r['card_body'][0])
+
+    def test_invalid_style_returns_error(self):
+        r = build_webex_adaptive_card(title="T", style="invalid")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+
+    def test_missing_title_returns_error(self):
+        r = build_webex_adaptive_card(title="")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.MISSING_REQUIRED_FIELD)
+
+    def test_blank_title_returns_error(self):
+        r = build_webex_adaptive_card(title="   ")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.MISSING_REQUIRED_FIELD)
+
+    def test_facts_element_missing_value_returns_error(self):
+        r = build_webex_adaptive_card(title="T", facts=[{"title": "Key"}])
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+        self.assertEqual(r['details']['element_index'], 0)
+
+    def test_actions_element_invalid_type_returns_error(self):
+        r = build_webex_adaptive_card(title="T", actions=[{"type": "invalid", "title": "X"}])
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+
+    def test_actions_element_missing_title_returns_error(self):
+        r = build_webex_adaptive_card(title="T", actions=[{"type": "url", "url": "https://x.com"}])
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_FIELD_VALUE)
+
+    def test_all_parameters_produce_correct_element_order(self):
+        r = build_webex_adaptive_card(
+            title="T", subtitle="S", image_url="https://img.x.com/i.png",
+            body_text="Body", facts=[{"title": "k", "value": "v"}]
+        )
+        items = r['card_body'][0]['items']
+        element_types = [el['type'] for el in items]
+        self.assertEqual(element_types, ['TextBlock', 'TextBlock', 'Image', 'TextBlock', 'FactSet'])
+
+    def test_result_is_directly_usable_with_send(self):
+        card = build_webex_adaptive_card(title="Test Card")
+        self.assertIn('card_body', card)
+        self.assertIn('card_actions', card)
+        mock_api = MagicMock()
+        mock_api.messages.create.return_value = _fake_message()
+        with patch.object(_msg_mod, 'webex_api', mock_api):
+            r = send_webex_adaptive_card(
+                room_id="R1", fallback_text="Test Card", **card
+            )
+        self.assertTrue(r['success'])
 
 
 if __name__ == '__main__':
