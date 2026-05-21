@@ -24,7 +24,7 @@ if "dotenv" not in sys.modules:
     sys.modules["dotenv"] = _dotenv_mod
 
 # Now it's safe to import the tools package
-from tools.messages import (                          # noqa: E402
+from webex_bot_mcp.tools.messages import (            # noqa: E402
     format_mention_by_email,
     format_mention_by_person_id,
     format_mention_all,
@@ -33,13 +33,13 @@ from tools.messages import (                          # noqa: E402
     send_webex_message_with_mentions,
     list_webex_messages,
 )
-from tools.common import (                            # noqa: E402
+from webex_bot_mcp.tools.common import (              # noqa: E402
     create_error_response,
     create_success_response,
     WebexErrorCodes,
 )
-from config import WebexConfig                        # noqa: E402
-import tools.messages as _msg_mod                    # noqa: E402
+from webex_bot_mcp.config import WebexConfig          # noqa: E402
+import webex_bot_mcp.tools.messages as _msg_mod      # noqa: E402
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
