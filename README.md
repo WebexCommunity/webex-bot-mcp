@@ -6,14 +6,14 @@ A comprehensive Model Context Protocol (MCP) server that provides tools, resourc
 
 ## Features
 
-### 🛠️ Tools (26 available)
+### 🛠️ Tools (31 available)
 - **Room Management**: Create, update, list, and manage Webex rooms/spaces
 - **Message Operations**: Send messages with text, markdown, HTML, files, and mentions
 - **Membership Management**: Add, remove, and update room memberships
 - **People Management**: Search and manage organization users
 - **Dual Terminology**: Full support for both "room" and "space" terminology
 
-### 📚 Resources (6 available)
+### 📚 Resources (10 available)
 - **Getting Started Guide**: Dynamic setup and authentication status
 - **Message Formatting**: Comprehensive formatting examples and best practices
 - **Current Configuration**: Live bot status and capabilities
@@ -87,6 +87,32 @@ For your bot to send messages to rooms, it must be added as a member:
 2. **For Direct Messages**:
    - Users can start a 1:1 conversation with your bot by searching for its username
    - Or you can send direct messages using the user's email address
+
+## Installation
+
+### From PyPI (recommended)
+
+```bash
+pip install webex-bot-mcp
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install webex-bot-mcp
+```
+
+Once installed, the `webex-bot-mcp` command is available system-wide.
+
+### From source
+
+Clone the repository and install with uv:
+
+```bash
+git clone https://github.com/WebexCommunity/webex-bot-mcp.git
+cd webex-bot-mcp
+uv sync
+```
 
 ## Installing uv
 
@@ -199,19 +225,19 @@ The server supports two transport types: stdio (default) and streamable-http.
 ### Stdio Transport (Default)
 
 ```bash
-uv run main.py
+webex-bot-mcp
 ```
 
 ### Streamable HTTP Transport
 
 ```bash
-uv run main.py --transport streamable-http
+webex-bot-mcp --transport streamable-http
 ```
 
 You can also customize the host and port for HTTP transport:
 
 ```bash
-uv run main.py --transport streamable-http --host 0.0.0.0 --port 9000
+webex-bot-mcp --transport streamable-http --host 0.0.0.0 --port 9000
 ```
 
 ### Command Line Options
@@ -223,7 +249,15 @@ uv run main.py --transport streamable-http --host 0.0.0.0 --port 9000
 Use `--help` to see all available options:
 
 ```bash
-uv run main.py --help
+webex-bot-mcp --help
+```
+
+A standalone health check command is also available:
+
+```bash
+webex-bot-mcp-health
+webex-bot-mcp-health --output text
+webex-bot-mcp-health --skip-api  # environment check only
 ```
 
 ## Claude Desktop Integration
@@ -238,7 +272,22 @@ The Claude Desktop configuration file is located at:
 
 ### Standard Configuration (Stdio Transport)
 
-Add this configuration to your `claude_desktop_config.json`:
+**If installed from PyPI** (recommended), add this to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "webex-bot-mcp": {
+      "command": "webex-bot-mcp",
+      "env": {
+        "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
+      }
+    }
+  }
+}
+```
+
+**If running from a source checkout**, use uv to run the CLI:
 
 ```json
 {
@@ -249,7 +298,7 @@ Add this configuration to your `claude_desktop_config.json`:
         "--directory",
         "/path/to/your/webex-bot-mcp",
         "run",
-        "main.py"
+        "webex-bot-mcp"
       ],
       "env": {
         "WEBEX_ACCESS_TOKEN": "your_webex_bot_access_token_here"
@@ -259,12 +308,12 @@ Add this configuration to your `claude_desktop_config.json`:
 }
 ```
 
-**Note**: If `uv` is not in your system PATH, replace `"uv"` with the full path to uv (e.g., `"/Users/username/.cargo/bin/uv"` on macOS/Linux or `"C:\\Users\\username\\.cargo\\bin\\uv.exe"` on Windows). See the [Installing uv](#installing-uv) section above for how to find the full path.
+**Note**: If `uv` or `webex-bot-mcp` are not in your system PATH, use the full path to the binary. See the [Installing uv](#installing-uv) section above for how to find the full path.
 
 ### Setup Steps
 
 1. **Replace the placeholder**: Change `your_webex_bot_access_token_here` to your actual Webex bot access token
-2. **Update the path**: Change `/path/to/your/webex-bot-mcp` to match your actual project directory location
+2. **Update the path** (source checkout only): Change `/path/to/your/webex-bot-mcp` to match your actual project directory
 3. **Copy the configuration**: Add the configuration to your Claude Desktop config file
 4. **Restart Claude Desktop**: Close and reopen Claude Desktop to load the new configuration
 5. **Test the MCP server**: You can now use the MCP server in Claude Desktop to interact with Webex rooms and send messages
