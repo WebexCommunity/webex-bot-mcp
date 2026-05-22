@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 
 # Import all tool functions from the tools package
-from tools import (
+from webex_bot_mcp.tools import (
     # Room functions
     list_webex_rooms, create_webex_room, update_webex_room,
     get_webex_room, delete_webex_room,
@@ -41,7 +41,7 @@ from tools import (
 )
 
 # Import version and error handling from common
-from tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
+from webex_bot_mcp.tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
 
 # Load environment variables before importing tools (tools/common.py reads them at import time)
 load_dotenv()
@@ -175,7 +175,7 @@ def webex_current_config():
             "api_calls_per_minute": 300
         }
     }
-    
+
     return f"""# Current Webex Bot Configuration
 
 ```json
@@ -205,12 +205,12 @@ def webex_troubleshooting():
 
 ### 🚫 "Bot not found" or "Unauthorized" Errors
 - **Cause**: Invalid or expired bot token
-- **Solution**: 
+- **Solution**:
   1. Check your bot token in Webex Developer Portal
   2. Regenerate token if needed
   3. Update WEBEX_ACCESS_TOKEN environment variable
 
-### 📵 "Cannot send message to room" 
+### 📵 "Cannot send message to room"
 - **Cause**: Bot is not a member of the target room
 - **Solution**:
   1. Add bot to room manually via Webex app
@@ -656,7 +656,7 @@ def webex_bot_health_check_prompt():
                 "required": False
             }
         ],
-        "template": """I need to perform a health check on my Webex bot. 
+        "template": """I need to perform a health check on my Webex bot.
 
 **Check Type**: {check_type or "full"}
 
@@ -845,7 +845,7 @@ def tools_schema():
                         "description": "Webex room identifier (mutually exclusive with person fields)"
                     },
                     "to_person_id": {
-                        "type": "string", 
+                        "type": "string",
                         "description": "Person ID for direct message"
                     },
                     "to_person_email": {
@@ -930,7 +930,7 @@ def error_codes_reference():
         "version": "1.0.0",
         "error_categories": {
             "client_errors": {
-                "range": "E001-E099", 
+                "range": "E001-E099",
                 "description": "Invalid requests that should not be retried",
                 "codes": {
                     "E001": {
@@ -940,14 +940,14 @@ def error_codes_reference():
                         "example": "Missing room_id, to_person_id, or to_person_email"
                     },
                     "E002": {
-                        "name": "MISSING_REQUIRED_FIELD", 
+                        "name": "MISSING_REQUIRED_FIELD",
                         "description": "Required field not provided",
                         "retry": False,
                         "example": "Must specify either text or markdown content"
                     },
                     "E003": {
                         "name": "INVALID_FIELD_VALUE",
-                        "description": "Field value is invalid or out of range", 
+                        "description": "Field value is invalid or out of range",
                         "retry": False,
                         "example": "Message text exceeds 7439 character limit"
                     }
@@ -964,7 +964,7 @@ def error_codes_reference():
                         "solution": "Check WEBEX_ACCESS_TOKEN environment variable"
                     },
                     "E403": {
-                        "name": "FORBIDDEN", 
+                        "name": "FORBIDDEN",
                         "description": "Bot lacks permission for this operation",
                         "retry": False,
                         "solution": "Ensure bot is added to the room"
@@ -995,7 +995,7 @@ def error_codes_reference():
                     },
                     "E503": {
                         "name": "RATE_LIMITED",
-                        "description": "API rate limit exceeded", 
+                        "description": "API rate limit exceeded",
                         "retry": True,
                         "delay": 60,
                         "solution": "Implement exponential backoff"
@@ -1013,7 +1013,7 @@ def error_codes_reference():
                         "solution": "Check Webex API status"
                     },
                     "E601": {
-                        "name": "NETWORK_ERROR", 
+                        "name": "NETWORK_ERROR",
                         "description": "Network connectivity issue",
                         "retry": True,
                         "delay": 30
@@ -1043,18 +1043,17 @@ def error_codes_reference():
     }
 
 
-if __name__ == "__main__":
-    # Parse command line arguments for transport type
+def main():
     parser = argparse.ArgumentParser(description="Webex Bot MCP Server")
     parser.add_argument(
-        "--transport", 
-        choices=["stdio", "streamable-http"], 
+        "--transport",
+        choices=["stdio", "streamable-http"],
         default="stdio",
         help="Transport type to use (default: stdio)"
     )
     parser.add_argument(
         "--host",
-        default="localhost", 
+        default="localhost",
         help="Host to bind to for streamable-http transport (default: localhost)"
     )
     parser.add_argument(
@@ -1063,10 +1062,14 @@ if __name__ == "__main__":
         default=8000,
         help="Port to bind to for streamable-http transport (default: 8000)"
     )
-    
+
     args = parser.parse_args()
-    
+
     if args.transport == "streamable-http":
         mcp.run(transport="streamable-http", host=args.host, port=args.port)
     else:
         mcp.run()
+
+
+if __name__ == "__main__":
+    main()

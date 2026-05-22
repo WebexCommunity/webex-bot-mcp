@@ -13,17 +13,13 @@ from datetime import datetime
 from typing import Dict, Any
 from dotenv import load_dotenv
 
-# Add the current directory to the path so we can import from tools
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from tools.common import get_webex_api
+from webex_bot_mcp.tools.common import webex_api
 
 
 def check_api_connectivity() -> Dict[str, Any]:
     """Test basic API connectivity and authentication"""
     try:
-        api = get_webex_api()
-        me = api.people.me()
+        me = webex_api.people.me()
         return {
             "status": "healthy",
             "bot_id": me.id,
@@ -43,14 +39,13 @@ def check_api_connectivity() -> Dict[str, Any]:
 def check_room_access() -> Dict[str, Any]:
     """Check bot's access to rooms"""
     try:
-        api = get_webex_api()
-        rooms = list(api.rooms.list(max=10))  # Limit to 10 for health check
-        
+        rooms = list(webex_api.rooms.list(max=10))  # Limit to 10 for health check
+
         room_types = {}
         for room in rooms:
             room_type = getattr(room, 'type', 'unknown')
             room_types[room_type] = room_types.get(room_type, 0) + 1
-        
+
         return {
             "status": "healthy",
             "total_rooms": len(rooms),
@@ -75,9 +70,9 @@ def check_room_access() -> Dict[str, Any]:
 def check_message_capability() -> Dict[str, Any]:
     """Test message sending capability (dry run)"""
     try:
-        # Just verify we can construct API client without sending
-        get_webex_api()
-        
+        # Just verify we can access the API client without sending
+        _ = webex_api
+
         return {
             "status": "healthy",
             "capabilities": {
@@ -106,7 +101,7 @@ def check_environment() -> Dict[str, Any]:
         "working_directory": os.getcwd(),
         "timestamp": datetime.now().isoformat()
     }
-    
+
     # Check for optional environment variables
     optional_vars = [
         "WEBEX_RATE_LIMIT_MESSAGES_PER_SECOND",
@@ -114,12 +109,12 @@ def check_environment() -> Dict[str, Any]:
         "LOG_LEVEL",
         "METRICS_ENABLED"
     ]
-    
+
     env_vars = {}
     for var in optional_vars:
         value = os.getenv(var)
         env_vars[var.lower()] = value if value else "not_set"
-    
+
     return {
         "status": "healthy" if checks["webex_access_token"] else "unhealthy",
         "checks": checks,
@@ -130,9 +125,9 @@ def check_environment() -> Dict[str, Any]:
 
 def run_health_check(include_api: bool = True, include_rooms: bool = True) -> Dict[str, Any]:
     """Run comprehensive health check"""
-    
+
     start_time = time.time()
-    
+
     results = {
         "timestamp": datetime.now().isoformat(),
         "overall_status": "healthy",
@@ -140,29 +135,29 @@ def run_health_check(include_api: bool = True, include_rooms: bool = True) -> Di
         "duration_seconds": 0,
         "version": "1.0.0"  # Could be read from pyproject.toml
     }
-    
+
     # Environment check (always run)
     results["checks"]["environment"] = check_environment()
-    
+
     if include_api:
         # API connectivity check
         results["checks"]["api_connectivity"] = check_api_connectivity()
-        
+
         # Message capability check
         results["checks"]["message_capability"] = check_message_capability()
-    
+
     if include_rooms and include_api:
         # Room access check
         results["checks"]["room_access"] = check_room_access()
-    
+
     # Determine overall status
     for check_name, check_result in results["checks"].items():
         if check_result.get("status") == "unhealthy":
             results["overall_status"] = "unhealthy"
             break
-    
+
     results["duration_seconds"] = round(time.time() - start_time, 2)
-    
+
     return results
 
 
@@ -173,18 +168,18 @@ def main():
     parser.add_argument("--skip-rooms", action="store_true", help="Skip room access checks")
     parser.add_argument("--output", choices=["json", "text"], default="json", help="Output format")
     parser.add_argument("--exit-code", action="store_true", help="Exit with non-zero code on unhealthy status")
-    
+
     args = parser.parse_args()
-    
+
     # Load environment variables
     load_dotenv()
-    
+
     # Run health check
     results = run_health_check(
         include_api=not args.skip_api,
         include_rooms=not args.skip_rooms
     )
-    
+
     # Output results
     if args.output == "json":
         print(json.dumps(results, indent=2))
@@ -194,18 +189,18 @@ def main():
         print(f"Timestamp: {results['timestamp']}")
         print(f"Duration: {results['duration_seconds']}s")
         print()
-        
+
         for check_name, check_result in results["checks"].items():
             status = check_result.get("status", "unknown")
             print(f"✅ {check_name}: {status}" if status == "healthy" else f"❌ {check_name}: {status}")
-            
+
             if status == "unhealthy" and "error" in check_result:
                 print(f"   Error: {check_result['error']}")
-    
+
     # Exit with appropriate code
     if args.exit_code and results["overall_status"] != "healthy":
         sys.exit(1)
-    
+
     sys.exit(0)
 
 

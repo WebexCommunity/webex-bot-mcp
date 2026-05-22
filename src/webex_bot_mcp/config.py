@@ -11,10 +11,10 @@ from dataclasses import dataclass
 @dataclass
 class WebexConfig:
     """Configuration class for Webex Bot MCP Server"""
-    
+
     # Required settings
     access_token: str
-    
+
     # Optional settings with defaults
     debug: bool = False
     rate_limit_messages_per_second: int = 10
@@ -24,24 +24,24 @@ class WebexConfig:
     org_domain: Optional[str] = None
     validate_ssl: bool = True
     timeout_seconds: int = 30
-    
+
     # Logging settings
     log_level: str = "INFO"
     log_format: str = "text"
-    
+
     # Monitoring settings
     metrics_enabled: bool = False
     metrics_endpoint: Optional[str] = None
-    
+
     @classmethod
     def from_env(cls) -> 'WebexConfig':
         """Create configuration from environment variables"""
-        
+
         # Required settings
         access_token = os.getenv("WEBEX_ACCESS_TOKEN")
         if not access_token:
             raise ValueError("WEBEX_ACCESS_TOKEN environment variable is required")
-        
+
         # Optional settings
         return cls(
             access_token=access_token,
@@ -58,7 +58,7 @@ class WebexConfig:
             metrics_enabled=os.getenv("METRICS_ENABLED", "false").lower() == "true",
             metrics_endpoint=os.getenv("METRICS_ENDPOINT")
         )
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary"""
         return {
@@ -86,29 +86,29 @@ class WebexConfig:
                 "metrics_endpoint": self.metrics_endpoint
             }
         }
-    
+
     def validate(self) -> list[str]:
         """Validate configuration and return list of issues"""
         issues = []
-        
+
         if not self.access_token:
             issues.append("WEBEX_ACCESS_TOKEN is required")
-        
+
         if self.rate_limit_messages_per_second <= 0:
             issues.append("Rate limit for messages per second must be positive")
-        
+
         if self.rate_limit_api_calls_per_minute <= 0:
             issues.append("Rate limit for API calls per minute must be positive")
-        
+
         if self.timeout_seconds <= 0:
             issues.append("Timeout seconds must be positive")
-        
+
         if self.log_level not in ["DEBUG", "INFO", "WARNING", "ERROR"]:
             issues.append("Log level must be one of: DEBUG, INFO, WARN, ERROR")
-        
+
         if self.log_format not in ["text", "json"]:
             issues.append("Log format must be 'text' or 'json'")
-        
+
         return issues
 
 
@@ -116,8 +116,8 @@ def get_config() -> WebexConfig:
     """Get validated configuration from environment"""
     config = WebexConfig.from_env()
     issues = config.validate()
-    
+
     if issues:
         raise ValueError(f"Configuration validation failed: {', '.join(issues)}")
-    
+
     return config

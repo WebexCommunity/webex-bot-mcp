@@ -1,11 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "webex-bot-mcp"
 version = "1.0.0"
 description = "Model Context Protocol server for Webex Teams — manage rooms, messages, and memberships via AI assistants"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.12"
+authors = [
+    { name = "WebexCommunity" },
+]
+keywords = ["webex", "mcp", "model-context-protocol", "cisco", "bot", "teams", "llm", "ai"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "python-dotenv>=1.0.0",
     "fastmcp>=2.9.0",
     "webexpythonsdk>=2.0.4",
 ]
+
+[project.urls]
+Homepage = "https://github.com/WebexCommunity/webex-bot-mcp"
+Repository = "https://github.com/WebexCommunity/webex-bot-mcp"
+Issues = "https://github.com/WebexCommunity/webex-bot-mcp/issues"
+
+[project.scripts]
+webex-bot-mcp = "webex_bot_mcp.main:main"
+webex-bot-mcp-health = "webex_bot_mcp.health_check:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/webex_bot_mcp"]
