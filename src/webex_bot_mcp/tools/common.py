@@ -35,6 +35,10 @@ class WebexErrorCodes:
     TOKEN_EXPIRED = "E602"
 
 
+class WebexTokenMissingError(RuntimeError):
+    """Raised when no Webex token is available for the current request."""
+
+
 def create_error_response(
     error_code: str,
     message: str,
@@ -120,7 +124,7 @@ def get_webex_api() -> WebexAPI:
     env_token = os.getenv("WEBEX_ACCESS_TOKEN")
     if env_token:
         return _cached_webex_api(env_token)
-    raise RuntimeError(
+    raise WebexTokenMissingError(
         "No Webex token available. Provide an 'Authorization: Bearer <token>' "
         "header (HTTP transport) or set WEBEX_ACCESS_TOKEN (stdio transport)."
     )

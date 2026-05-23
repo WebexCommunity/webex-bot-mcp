@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy everything needed for a PEP 517 build
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml README.md ./
 COPY src/ ./src/
 
 # Non-editable install so the package lands fully in site-packages

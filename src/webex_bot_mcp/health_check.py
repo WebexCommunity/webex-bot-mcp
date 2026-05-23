@@ -18,6 +18,11 @@ from webex_bot_mcp.tools.common import webex_api
 
 def check_api_connectivity() -> Dict[str, Any]:
     """Test basic API connectivity and authentication"""
+    if webex_api is None:
+        return {
+            "status": "skipped",
+            "note": "WEBEX_ACCESS_TOKEN not set; API checks require a token (HTTP transport uses per-request tokens)"
+        }
     try:
         me = webex_api.people.me()
         return {
@@ -26,7 +31,7 @@ def check_api_connectivity() -> Dict[str, Any]:
             "bot_name": me.displayName,
             "bot_email": me.emails[0] if me.emails else "unknown",
             "org_id": me.orgId,
-            "response_time_ms": 0  # Would need timing logic
+            "response_time_ms": 0
         }
     except Exception as e:
         return {
@@ -38,8 +43,13 @@ def check_api_connectivity() -> Dict[str, Any]:
 
 def check_room_access() -> Dict[str, Any]:
     """Check bot's access to rooms"""
+    if webex_api is None:
+        return {
+            "status": "skipped",
+            "note": "WEBEX_ACCESS_TOKEN not set; room checks require a token"
+        }
     try:
-        rooms = list(webex_api.rooms.list(max=10))  # Limit to 10 for health check
+        rooms = list(webex_api.rooms.list(max=10))
 
         room_types = {}
         for room in rooms:

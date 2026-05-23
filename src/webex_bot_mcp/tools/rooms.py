@@ -2,10 +2,12 @@
 Webex Room/Space management tools.
 """
 from typing import Optional, Dict, Any
-from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes
+from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes, WebexTokenMissingError
 
 
 def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
+    if isinstance(e, WebexTokenMissingError):
+        return create_error_response(WebexErrorCodes.UNAUTHORIZED, str(e))
     error_str = str(e).lower()
     if 'unauthorized' in error_str or 'invalid token' in error_str:
         return create_error_response(WebexErrorCodes.UNAUTHORIZED,

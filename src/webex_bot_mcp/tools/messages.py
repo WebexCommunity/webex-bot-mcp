@@ -2,7 +2,7 @@
 Webex Message management tools.
 """
 from typing import Optional, Dict, Any, List
-from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes
+from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes, WebexTokenMissingError
 
 
 def format_mention_by_email(email: str, display_name: Optional[str] = None) -> str:
@@ -67,6 +67,8 @@ def create_message_with_mentions(
 
 def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
     """Map a caught exception to a structured error response."""
+    if isinstance(e, WebexTokenMissingError):
+        return create_error_response(WebexErrorCodes.UNAUTHORIZED, str(e))
     error_str = str(e).lower()
     if 'rate limit' in error_str or 'too many requests' in error_str:
         return create_error_response(
