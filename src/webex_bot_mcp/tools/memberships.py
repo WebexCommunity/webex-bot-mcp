@@ -2,7 +2,7 @@
 Webex Membership management tools.
 """
 from typing import Optional, Dict, Any
-from .common import webex_api, create_error_response, create_success_response, WebexErrorCodes
+from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes
 
 
 def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
@@ -76,7 +76,7 @@ def list_webex_memberships(
         if max_results:
             params['max'] = max_results
 
-        memberships = [_membership_to_dict(m) for m in webex_api.memberships.list(**params)]
+        memberships = [_membership_to_dict(m) for m in get_webex_api().memberships.list(**params)]
         return create_success_response(
             data={'memberships': memberships},
             metadata={'count': len(memberships), 'filters_applied': params}
@@ -119,7 +119,7 @@ def add_webex_membership(
         if is_moderator is not None:
             params['isModerator'] = is_moderator
 
-        membership = webex_api.memberships.create(**params)
+        membership = get_webex_api().memberships.create(**params)
         return create_success_response(
             data={'membership': _membership_to_dict(membership)},
             metadata={'operation': 'add_membership', 'parameters_used': params}
@@ -157,7 +157,7 @@ def update_webex_membership(
                 message="Must specify at least one field to update (is_moderator or is_monitor)"
             )
 
-        membership = webex_api.memberships.update(membershipId=membership_id, **params)
+        membership = get_webex_api().memberships.update(membershipId=membership_id, **params)
         return create_success_response(
             data={'membership': _membership_to_dict(membership)},
             metadata={'operation': 'update_membership', 'membership_id': membership_id,
@@ -184,7 +184,7 @@ def delete_webex_membership(membership_id: str) -> Dict[str, Any]:
                 error_code=WebexErrorCodes.INVALID_ARGUMENTS,
                 message="membership_id is required"
             )
-        webex_api.memberships.delete(membershipId=membership_id)
+        get_webex_api().memberships.delete(membershipId=membership_id)
         return create_success_response(
             data={'deleted': True, 'membership_id': membership_id},
             metadata={'operation': 'delete_membership'}

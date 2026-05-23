@@ -3,6 +3,7 @@ Common utilities and shared components for Webex Bot MCP tools.
 """
 import os
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Dict, Any
 from webexpythonsdk import WebexAPI
 
@@ -98,14 +99,33 @@ def create_success_response(data: Dict[str, Any], metadata: Dict[str, Any] = Non
     return response
 
 
-class _MissingTokenAPI:
-    """Sentinel that gives a clear error when tools are called without a token."""
-    def __getattr__(self, name: str):
-        raise RuntimeError(
-            "WEBEX_ACCESS_TOKEN environment variable is not set. "
-            "Set it before using any Webex tools."
-        )
+@lru_cache(maxsize=64)
+def _cached_webex_api(token: str) -> WebexAPI:
+    return WebexAPI(access_token=token)
 
 
+def get_webex_api() -> WebexAPI:
+    """Return a WebexAPI client for the current request.
+
+    For HTTP transport, reads the token from the Authorization: Bearer header.
+    Falls back to the WEBEX_ACCESS_TOKEN env var (stdio transport).
+    """
+    from fastmcp.server.dependencies import get_http_headers
+    headers = get_http_headers()
+    auth = headers.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+        if token:
+            return _cached_webex_api(token)
+    env_token = os.getenv("WEBEX_ACCESS_TOKEN")
+    if env_token:
+        return _cached_webex_api(env_token)
+    raise RuntimeError(
+        "No Webex token available. Provide an 'Authorization: Bearer <token>' "
+        "header (HTTP transport) or set WEBEX_ACCESS_TOKEN (stdio transport)."
+    )
+
+
+# Keep for backward compatibility (health_check.py uses this directly)
 webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
-webex_api = WebexAPI(access_token=webex_access_token) if webex_access_token else _MissingTokenAPI()
+webex_api = WebexAPI(access_token=webex_access_token) if webex_access_token else None
