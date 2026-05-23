@@ -35,6 +35,9 @@ from webex_bot_mcp.tools import (
     list_webex_messages, delete_webex_message,
     # Space message aliases
     send_webex_space_message, list_webex_space_messages,
+    # Adaptive card tools
+    send_webex_adaptive_card, send_webex_space_adaptive_card,
+    build_webex_adaptive_card,
     # Membership functions
     list_webex_memberships, add_webex_membership,
     update_webex_membership, delete_webex_membership,
@@ -76,6 +79,11 @@ mcp.tool()(delete_webex_message)
 # Space message aliases
 mcp.tool()(send_webex_space_message)
 mcp.tool()(list_webex_space_messages)
+
+# Adaptive card tools
+mcp.tool()(send_webex_adaptive_card)
+mcp.tool()(send_webex_space_adaptive_card)
+mcp.tool()(build_webex_adaptive_card)
 
 # Membership management tools
 mcp.tool()(list_webex_memberships)
@@ -159,6 +167,124 @@ def webex_message_formatting():
 - Test messages in a small room first
 - Consider timezone differences for your audience
 """
+
+@mcp.resource("webex://help/adaptive-cards")
+def webex_adaptive_cards_guide():
+    """Guide for creating and sending Adaptive Cards in Webex"""
+    return """# Webex Adaptive Cards Guide
+
+Adaptive Cards are rich, interactive message attachments rendered natively by the Webex client.
+Clients that do not support cards display the plain-text `fallback_text` instead.
+
+## Supported AdaptiveCard Versions
+| Version | Notable additions |
+|---------|-------------------|
+| 1.0 | TextBlock, Image, ColumnSet, FactSet, Action.OpenUrl, Action.Submit |
+| 1.1 | Media, RichTextBlock, Action.ToggleVisibility |
+| 1.2 | Table, Input elements (Input.Text, Input.Number, Input.Date, etc.) |
+| 1.3 | Action.Execute, selectAction on containers |
+
+Webex supports up to **version 1.3**. Use the default ("1.3") unless you need to target older clients.
+
+## Body Element Types
+| Type | Purpose |
+|------|---------|
+| `TextBlock` | Paragraph or label text; supports weight, size, color, isSubtle, wrap |
+| `Image` | Display an image by URL; supports size (Auto, Small, Medium, Large, Stretch) |
+| `FactSet` | Key-value table; `facts` list of `{title, value}` dicts |
+| `Container` | Group elements with optional style (default/emphasis/good/warning/attention) |
+| `ColumnSet` + `Column` | Multi-column layouts |
+| `ImageSet` | Grid of images |
+| `Input.Text` | Single-line or multi-line text input |
+| `Input.Number` | Numeric input |
+| `Input.Date` / `Input.Time` | Date and time pickers |
+| `Input.Toggle` | Boolean checkbox |
+| `Input.ChoiceSet` | Dropdown or radio buttons |
+| `RichTextBlock` | Inline text runs with mixed formatting |
+| `Table` | Structured grid (v1.2+) |
+
+## Action Types
+| Type | Purpose |
+|------|---------|
+| `Action.OpenUrl` | Open a URL in the browser |
+| `Action.Submit` | Post form data back to the bot webhook |
+| `Action.ShowCard` | Expand an inline nested card |
+| `Action.ToggleVisibility` | Show/hide elements by ID |
+
+## Workflow: Build then Send
+
+### Option A — High-level builder (recommended)
+```python
+card = build_webex_adaptive_card(
+    title="Deployment Complete",
+    subtitle="Production • v2.3.1",
+    body_text="All health checks passed.",
+    facts=[
+        {"title": "Region", "value": "us-east-1"},
+        {"title": "Duration", "value": "4m 12s"},
+    ],
+    actions=[
+        {"type": "url", "title": "View Dashboard", "url": "https://dash.example.com"},
+        {"type": "submit", "title": "Acknowledge", "data": {"action": "ack", "version": "2.3.1"}},
+    ],
+    style="good",
+)
+result = send_webex_adaptive_card(
+    room_id="Y2lzY29zcGFyazovL...",
+    fallback_text="Deployment Complete — v2.3.1 to production",
+    **card,
+)
+```
+
+### Option B — Full manual card
+```python
+result = send_webex_adaptive_card(
+    room_id="Y2lzY29zcGFyazovL...",
+    fallback_text="Approval request",
+    card_body=[
+        {"type": "TextBlock", "text": "Approve Release?", "weight": "Bolder", "size": "Medium"},
+        {"type": "Input.Text", "id": "comment", "placeholder": "Optional comment", "isMultiline": True},
+    ],
+    card_actions=[
+        {"type": "Action.Submit", "title": "Approve", "data": {"decision": "approve"}},
+        {"type": "Action.Submit", "title": "Reject",  "data": {"decision": "reject"}},
+    ],
+)
+```
+
+## Common Card Patterns
+
+### Notification card
+```json
+{
+  "type": "Container",
+  "style": "emphasis",
+  "items": [
+    {"type": "TextBlock", "text": "Alert Title", "weight": "Bolder"},
+    {"type": "TextBlock", "text": "Details go here.", "wrap": true}
+  ]
+}
+```
+
+### Status dashboard (ColumnSet)
+```json
+{
+  "type": "ColumnSet",
+  "columns": [
+    {"type": "Column", "width": "auto", "items": [{"type": "Image", "url": "...icon url..."}]},
+    {"type": "Column", "width": "stretch", "items": [
+      {"type": "TextBlock", "text": "Service Name", "weight": "Bolder"},
+      {"type": "TextBlock", "text": "Healthy", "color": "Good"}
+    ]}
+  ]
+}
+```
+
+## Reference
+- Adaptive Cards schema explorer: https://adaptivecards.io/explorer/
+- Webex card samples: https://developer.webex.com/docs/api/guides/cards
+"""
+
 
 @mcp.resource("webex://config/current")
 def webex_current_config():
@@ -762,6 +888,62 @@ Provide a compliance report with findings, risk ratings, and remediation recomme
     }
 
 
+@mcp.prompt("webex-design-adaptive-card")
+def webex_design_adaptive_card_prompt():
+    """Design and send an Adaptive Card for a specific use case"""
+    return {
+        "name": "Design Adaptive Card",
+        "description": "Design and send a Webex Adaptive Card tailored to a specific use case",
+        "arguments": [
+            {
+                "name": "use_case",
+                "description": "Type of card to create (e.g. 'CI notification', 'approval request', 'status dashboard', 'form')",
+                "required": True
+            },
+            {
+                "name": "content_description",
+                "description": "What information or actions should appear on the card",
+                "required": True
+            },
+            {
+                "name": "room_id",
+                "description": "Room ID or person email to send the card to",
+                "required": True
+            }
+        ],
+        "template": """Design and send a Webex Adaptive Card for the following use case.
+
+Use case: {use_case}
+Content: {content_description}
+Destination: {room_id}
+
+Follow these steps:
+
+1. Read the webex://help/adaptive-cards resource for schema reference.
+
+2. Call build_webex_adaptive_card with appropriate inputs:
+   - title: concise, action-oriented heading
+   - subtitle: (optional) context like environment, version, or timestamp
+   - body_text: (optional) supporting detail
+   - facts: (optional) key-value pairs for structured data
+   - actions: (optional) buttons — use "url" type for links, "submit" for bot interactions
+   - style: choose "good" (success), "warning", "attention" (error/alert), or "default"
+
+3. Review the returned card_body and card_actions for correctness.
+
+4. Call send_webex_adaptive_card with:
+   - room_id or to_person_email (from the destination above)
+   - card_body and card_actions from step 2
+   - fallback_text: a plain-text summary for clients that don't support cards
+
+5. Report the message ID and a summary of what was sent.
+
+If the use case requires custom schema elements not supported by build_webex_adaptive_card
+(e.g. Input fields, nested ShowCard actions), construct card_body manually as a list of
+Adaptive Card element dicts and call send_webex_adaptive_card directly."""
+    }
+
+
 # ========== VERSION & METADATA RESOURCES ==========
 
 @mcp.resource("webex://meta/version")
@@ -777,9 +959,9 @@ def server_version():
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 31,
-        "resources_count": 10,
-        "prompts_count": 7,
+        "tools_count": 27,
+        "resources_count": 11,
+        "prompts_count": 8,
         "breaking_changes": {
             "1.0.0": [
                 "Initial release with structured error handling",

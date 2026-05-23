@@ -9,32 +9,35 @@ guides) and prompt templates for common workflows.
 ## Repository Layout
 
 ```
-main.py              — MCP server entry point; registers all tools/resources/prompts
-config.py            — WebexConfig dataclass; loaded via get_config() or WebexConfig.from_env()
-health_check.py      — Standalone diagnostic script; validates env and API connectivity
-pyproject.toml       — Project metadata and dependencies (uses uv)
+src/webex_bot_mcp/
+  main.py            — MCP server entry point; registers all tools/resources/prompts
+  config.py          — WebexConfig dataclass; loaded via get_config() or WebexConfig.from_env()
+  health_check.py    — Standalone diagnostic script; validates env and API connectivity
+  tools/
+    __init__.py      — Re-exports every tool function
+    common.py        — Shared: WebexAPI client, create_error_response, create_success_response,
+                       WebexErrorCodes, version constants
+    rooms.py         — Room/space CRUD (list, create, update, get, delete) + space aliases
+    messages.py      — Message send/list/delete + mention helpers + space aliases +
+                       Adaptive Card send/build tools
+    memberships.py   — Membership CRUD (list, add, update, delete) + space aliases
+    people.py        — get_webex_me, list_webex_people
+
+pyproject.toml       — Project metadata and dependencies (uses uv, src layout)
 Dockerfile           — Multi-stage build; non-root user, health checks
 docker-compose.yml   — Compose stack with optional Prometheus + Grafana
 
-tools/
-  __init__.py        — Re-exports every tool function
-  common.py          — Shared: WebexAPI client, create_error_response, create_success_response,
-                       WebexErrorCodes, version constants
-  rooms.py           — Room/space CRUD (list, create, update, get, delete) + space aliases
-  messages.py        — Message send/list/delete + mention helpers + space aliases
-  memberships.py     — Membership CRUD (list, add, update, delete) + space aliases
-  people.py          — get_webex_me, list_webex_people
-
 tests/
-  test_messages.py   — Unit tests (38 cases); mocks webexpythonsdk at sys.modules level
+  test_messages.py   — Unit tests (85 cases); mocks webexpythonsdk at sys.modules level
 ```
 
 ## Key Conventions
 
 ### Tool count
-31 tools total: 5 room + 5 space-room aliases + 4 message + 2 space-message aliases +
-4 membership + 2 space-membership aliases + 2 people + 4 space-room/membership aliases.
-Update `tools_count` in the `server_version` resource (`main.py`) when adding tools.
+27 tools total: 5 room + 5 space-room aliases + 4 message + 2 space-message aliases +
+2 adaptive-card + 1 adaptive-card-space alias + 1 adaptive-card-builder +
+4 membership + 2 space-membership aliases + 2 people.
+Update `tools_count` in the `server_version` resource (`src/webex_bot_mcp/main.py`) when adding tools.
 
 ### Error handling — always use structured responses
 Every tool must return via `create_error_response` or `create_success_response` from
@@ -72,10 +75,10 @@ params['files'] = [files] if isinstance(files, str) else files
 
 ```bash
 # stdio (default — for Claude Desktop / MCP clients)
-uv run python main.py
+uv run webex-bot-mcp
 
 # HTTP transport
-uv run python main.py --transport streamable-http --host 0.0.0.0 --port 8000
+uv run webex-bot-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 Required environment variable: `WEBEX_ACCESS_TOKEN`
@@ -83,19 +86,20 @@ Required environment variable: `WEBEX_ACCESS_TOKEN`
 ## Running Tests
 
 ```bash
-python -m unittest discover -s tests -v
+uv run python -m unittest discover -s tests -v
 ```
 
 Tests mock `webexpythonsdk` via `sys.modules` so no real credentials are needed.
+Must run via `uv run` so the `src/webex_bot_mcp` package is on the Python path.
 
 ## Adding a New Tool
 
-1. Implement the function in the appropriate `tools/*.py` module.
+1. Implement the function in the appropriate `src/webex_bot_mcp/tools/*.py` module.
 2. Use `create_error_response` / `create_success_response` for all returns.
 3. Add a `_map_exception_to_error` call in the `except` block.
-4. Export from `tools/__init__.py`.
-5. Register with `mcp.tool()(your_function)` in `main.py`.
-6. Update `tools_count` in the `server_version` resource in `main.py`.
+4. Export from `src/webex_bot_mcp/tools/__init__.py`.
+5. Register with `mcp.tool()(your_function)` in `src/webex_bot_mcp/main.py`.
+6. Update `tools_count` in the `server_version` resource in `src/webex_bot_mcp/main.py`.
 7. Add unit tests in `tests/test_messages.py` (or a new test file).
 
 ## Environment Variables
