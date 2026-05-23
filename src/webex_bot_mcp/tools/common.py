@@ -7,7 +7,7 @@ from typing import Dict, Any
 from webexpythonsdk import WebexAPI
 
 # Server version information
-MCP_SERVER_VERSION = "0.1.0"
+MCP_SERVER_VERSION = "0.1.1"
 MCP_SPEC_VERSION = "2024-11-05"
 
 # Error codes for structured error handling
