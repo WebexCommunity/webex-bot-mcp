@@ -4,10 +4,14 @@ Common utilities and shared components for Webex Bot MCP tools.
 import os
 from datetime import datetime, timezone
 from typing import Dict, Any
+from importlib.metadata import version, PackageNotFoundError
 from webexpythonsdk import WebexAPI
 
-# Server version information
-MCP_SERVER_VERSION = "0.1.1"
+# Server version information — single source of truth is pyproject.toml
+try:
+    MCP_SERVER_VERSION = version("webex-bot-mcp")
+except PackageNotFoundError:
+    MCP_SERVER_VERSION = "unknown"
 MCP_SPEC_VERSION = "2024-11-05"
 
 # Error codes for structured error handling

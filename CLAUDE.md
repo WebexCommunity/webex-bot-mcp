@@ -9,10 +9,17 @@ guides) and prompt templates for common workflows.
 ## Repository Layout
 
 ```
+pyproject.toml       — Project metadata, version (single source of truth), and dependencies (uv)
+Dockerfile           — Multi-stage build; non-root user, health checks
+docker-compose.yml   — Compose stack with optional Prometheus + Grafana
+
 src/webex_bot_mcp/
+  __init__.py        — Package init; reads __version__ from importlib.metadata
+  __main__.py        — Enables `python -m webex_bot_mcp`
   main.py            — MCP server entry point; registers all tools/resources/prompts
   config.py          — WebexConfig dataclass; loaded via get_config() or WebexConfig.from_env()
   health_check.py    — Standalone diagnostic script; validates env and API connectivity
+
   tools/
     __init__.py      — Re-exports every tool function
     common.py        — Shared: WebexAPI client, create_error_response, create_success_response,
@@ -23,12 +30,15 @@ src/webex_bot_mcp/
     memberships.py   — Membership CRUD (list, add, update, delete) + space aliases
     people.py        — get_webex_me, list_webex_people
 
-pyproject.toml       — Project metadata and dependencies (uses uv, src layout)
-Dockerfile           — Multi-stage build; non-root user, health checks
-docker-compose.yml   — Compose stack with optional Prometheus + Grafana
-
 tests/
   test_messages.py   — Unit tests (85 cases); mocks webexpythonsdk at sys.modules level
+
+.github/
+  workflows/
+    publish.yml           — Builds + publishes to TestPyPI then PyPI on tag/workflow_dispatch
+    release-please.yml    — Creates release PRs and tags from conventional commits
+  release-please-config.json    — release-please package config
+  .release-please-manifest.json — Tracks current released version
 ```
 
 ## Key Conventions
@@ -74,11 +84,16 @@ params['files'] = [files] if isinstance(files, str) else files
 ## Running the Server
 
 ```bash
-# stdio (default — for Claude Desktop / MCP clients)
-uv run webex-bot-mcp
+# If installed from PyPI (pip install webex-bot-mcp)
+webex-bot-mcp                                          # stdio (default)
+webex-bot-mcp --transport streamable-http --port 8000  # HTTP transport
 
-# HTTP transport
-uv run webex-bot-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+# From source checkout (development)
+uv run webex-bot-mcp
+uv run python -m webex_bot_mcp --transport streamable-http --host 0.0.0.0 --port 8000
+
+# Health check
+webex-bot-mcp-health
 ```
 
 Required environment variable: `WEBEX_ACCESS_TOKEN`
@@ -86,6 +101,8 @@ Required environment variable: `WEBEX_ACCESS_TOKEN`
 ## Running Tests
 
 ```bash
+python -m unittest discover -s tests -v
+# or, from a source checkout with uv:
 uv run python -m unittest discover -s tests -v
 ```
 
@@ -115,6 +132,63 @@ Must run via `uv run` so the `src/webex_bot_mcp` package is on the Python path.
 | `LOG_FORMAT` | | `text` | `text` or `json` |
 | `METRICS_ENABLED` | | `false` | Enable metrics endpoint |
 | `METRICS_ENDPOINT` | | — | Prometheus push endpoint |
+
+## Releases & Conventional Commits
+
+Releases are fully automated via **release-please** + **GitHub Actions**. No manual version
+bumping or tagging is needed for normal releases.
+
+### How it works
+
+1. Merge commits to `main` using the **conventional commit** format (see below).
+2. release-please watches `main` and maintains a "Release PR" that accumulates unreleased
+   changes, updating `CHANGELOG.md` and `pyproject.toml` version automatically.
+3. When you're ready to release, **merge the Release PR** — release-please creates a GitHub
+   tag + release automatically.
+4. The `publish.yml` workflow fires on the new tag, builds the wheel, publishes to TestPyPI
+   (requires approval from the `testpypi` environment), then publishes to PyPI (requires
+   approval from the `pypi` environment).
+
+You can also trigger a publish manually from the GitHub Actions tab via `workflow_dispatch`
+(useful if you need to republish without a new tag).
+
+### Conventional commit format
+
+```
+<type>(<scope>): <short description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+| Type | Version bump | Use for |
+|---|---|---|
+| `feat:` | minor | New tool, resource, or user-visible feature |
+| `fix:` | patch | Bug fix |
+| `feat!:` or `BREAKING CHANGE:` footer | major | Breaking API change |
+| `chore:` | none | Build, CI, dependency updates |
+| `docs:` | none | Documentation only |
+| `refactor:` | none | Code restructure, no behavior change |
+| `test:` | none | Test additions or fixes |
+| `perf:` | patch | Performance improvement |
+
+**Examples:**
+```
+feat(messages): add markdown formatting support
+fix(rooms): handle 404 when room already deleted
+chore(deps): update fastmcp to 2.5.0
+docs: add conventional commits guide to CLAUDE.md
+feat!: rename list_webex_rooms to list_rooms
+
+BREAKING CHANGE: tool name changed for consistency
+```
+
+### Version source of truth
+
+Version lives **only** in `pyproject.toml`. Code reads it at runtime via
+`importlib.metadata.version("webex-bot-mcp")`. Never hard-code a version string anywhere
+else in the source.
 
 ## Dependency Management
 
