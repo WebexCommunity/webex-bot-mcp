@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "webex-bot-mcp"
-version = "1.0.0"
+version = "0.1.0"
 description = "Model Context Protocol server for Webex Teams — manage rooms, messages, and memberships via AI assistants"
 readme = "README.md"
 license = { text = "MIT" }
