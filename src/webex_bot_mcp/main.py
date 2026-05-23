@@ -959,7 +959,7 @@ def server_version():
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 34,
+        "tools_count": 27,
         "resources_count": 11,
         "prompts_count": 8,
         "breaking_changes": {
