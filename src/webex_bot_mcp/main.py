@@ -16,6 +16,10 @@ import argparse
 import json
 from datetime import datetime
 from dotenv import load_dotenv
+
+# Load .env before importing tools so WEBEX_ACCESS_TOKEN is available at import time
+load_dotenv()
+
 from fastmcp import FastMCP
 
 # Import all tool functions from the tools package
@@ -42,9 +46,6 @@ from webex_bot_mcp.tools import (
 
 # Import version and error handling from common
 from webex_bot_mcp.tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
-
-# Load environment variables before importing tools (tools/common.py reads them at import time)
-load_dotenv()
 
 webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
 

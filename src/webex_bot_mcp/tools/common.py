@@ -98,9 +98,14 @@ def create_success_response(data: Dict[str, Any], metadata: Dict[str, Any] = Non
     return response
 
 
-# Initialize Webex SDK — token must be set before importing this module
-webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
-if not webex_access_token:
-    raise ValueError("WEBEX_ACCESS_TOKEN environment variable is required")
+class _MissingTokenAPI:
+    """Sentinel that gives a clear error when tools are called without a token."""
+    def __getattr__(self, name: str):
+        raise RuntimeError(
+            "WEBEX_ACCESS_TOKEN environment variable is not set. "
+            "Set it before using any Webex tools."
+        )
 
-webex_api = WebexAPI(access_token=webex_access_token)
+
+webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
+webex_api = WebexAPI(access_token=webex_access_token) if webex_access_token else _MissingTokenAPI()
