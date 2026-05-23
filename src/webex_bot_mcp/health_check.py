@@ -94,16 +94,18 @@ def check_message_capability() -> Dict[str, Any]:
 
 def check_environment() -> Dict[str, Any]:
     """Check environment configuration"""
+    token_configured = bool(os.getenv("WEBEX_ACCESS_TOKEN"))
     checks = {
-        "webex_access_token": bool(os.getenv("WEBEX_ACCESS_TOKEN")),
+        # Token is optional for HTTP transport (supplied per-request via Bearer header)
+        "webex_access_token": "env" if token_configured else "per-request",
         "debug_mode": os.getenv("WEBEX_DEBUG", "false").lower() == "true",
         "python_version": sys.version,
         "working_directory": os.getcwd(),
         "timestamp": datetime.now().isoformat()
     }
 
-    # Check for optional environment variables
     optional_vars = [
+        "WEBEX_ACCESS_TOKEN",
         "WEBEX_RATE_LIMIT_MESSAGES_PER_SECOND",
         "WEBEX_RATE_LIMIT_API_CALLS_PER_MINUTE",
         "LOG_LEVEL",
@@ -116,10 +118,10 @@ def check_environment() -> Dict[str, Any]:
         env_vars[var.lower()] = value if value else "not_set"
 
     return {
-        "status": "healthy" if checks["webex_access_token"] else "unhealthy",
+        "status": "healthy",
         "checks": checks,
         "environment_variables": env_vars,
-        "missing_required": [] if checks["webex_access_token"] else ["WEBEX_ACCESS_TOKEN"]
+        "missing_required": []
     }
 
 
