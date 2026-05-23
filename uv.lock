@@ -585,14 +585,14 @@ requires-dist = [
 
 [[package]]
 name = "webexpythonsdk"
-version = "2.0.4"
+version = "2.0.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyjwt" },
     { name = "requests" },
     { name = "requests-toolbelt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/84/11/1e4e50b36228c6f40d943adc3a46b94f20864a91784e51624ad12880abba/webexpythonsdk-2.0.4.tar.gz", hash = "sha256:8103193460bb9da51b7873654f4591fc265a336751b49f372fb3b584c440c538", size = 66886, upload-time = "2025-01-22T17:12:48.576Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/da/460a2a74278487120e1338e59748a1714d49c08a8143420b218ef7ac8891/webexpythonsdk-2.0.6.tar.gz", hash = "sha256:f28f5bfbc460208a7704f3adef3d79a4d0d6501ed60638d7ce7e83972346c4a2", size = 67524, upload-time = "2026-04-14T17:32:04.355Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/a2/56c2848eb73965b70472e156650031f84ad8bc7a442b3c0c7a4846c04514/webexpythonsdk-2.0.4-py3-none-any.whl", hash = "sha256:ee8845dc79fc9b296a9e0080d1dffd9565a0116ca82b97796225057a7d22e285", size = 149107, upload-time = "2025-01-22T17:12:45.279Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/0b/d51e0cc89462eebace17d27d85c2f89f49b6140c35a549eb2683e90317b0/webexpythonsdk-2.0.6-py3-none-any.whl", hash = "sha256:1815db24c9b915278d9fb683b72e55e99f4bb3d9e63f3769b907c6fbf128cfb6", size = 149897, upload-time = "2026-04-14T17:32:02.987Z" },
 ]
