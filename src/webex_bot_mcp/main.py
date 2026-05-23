@@ -57,9 +57,11 @@ webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
 
 
 class WebexAuthMiddleware(BaseHTTPMiddleware):
-    """Reject HTTP requests that don't carry a Webex bearer token."""
+    """Enforce Bearer token auth on all MCP requests; expose /health unauthenticated."""
 
     async def dispatch(self, request, call_next):
+        if request.url.path == "/health":
+            return Response('{"status":"ok"}', media_type="application/json")
         auth = request.headers.get("authorization", "")
         if not auth.lower().startswith("bearer ") or not auth[7:].strip():
             return Response(
