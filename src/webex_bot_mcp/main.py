@@ -48,6 +48,11 @@ from webex_bot_mcp.tools import (
     list_webex_space_memberships, add_webex_space_membership,
     # People functions
     get_webex_me, list_webex_people,
+    # Team functions
+    list_webex_teams, create_webex_team, get_webex_team,
+    update_webex_team, delete_webex_team,
+    list_webex_team_memberships, add_webex_team_membership,
+    delete_webex_team_membership,
 )
 
 # Import version and error handling from common
@@ -118,6 +123,18 @@ mcp.tool()(add_webex_space_membership)
 # People management tools
 mcp.tool()(get_webex_me)
 mcp.tool()(list_webex_people)
+
+# Team management tools
+mcp.tool()(list_webex_teams)
+mcp.tool()(create_webex_team)
+mcp.tool()(get_webex_team)
+mcp.tool()(update_webex_team)
+mcp.tool()(delete_webex_team)
+
+# Team membership tools
+mcp.tool()(list_webex_team_memberships)
+mcp.tool()(add_webex_team_membership)
+mcp.tool()(delete_webex_team_membership)
 
 
 # ========== RESOURCES ==========
@@ -1018,7 +1035,7 @@ def server_version():
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 27,
+        "tools_count": 35,
         "resources_count": 11,
         "prompts_count": 8,
         "breaking_changes": {

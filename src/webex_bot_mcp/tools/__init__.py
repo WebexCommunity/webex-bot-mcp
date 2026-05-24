@@ -26,6 +26,13 @@ from .people import (
     get_webex_me, list_webex_people,
 )
 
+from .teams import (
+    list_webex_teams, create_webex_team, get_webex_team,
+    update_webex_team, delete_webex_team,
+    list_webex_team_memberships, add_webex_team_membership,
+    delete_webex_team_membership,
+)
+
 __all__ = [
     # Room functions
     'list_webex_rooms', 'create_webex_room', 'update_webex_room',
@@ -48,4 +55,9 @@ __all__ = [
     'list_webex_space_memberships', 'add_webex_space_membership',
     # People functions
     'get_webex_me', 'list_webex_people',
+    # Team functions
+    'list_webex_teams', 'create_webex_team', 'get_webex_team',
+    'update_webex_team', 'delete_webex_team',
+    'list_webex_team_memberships', 'add_webex_team_membership',
+    'delete_webex_team_membership',
 ]
