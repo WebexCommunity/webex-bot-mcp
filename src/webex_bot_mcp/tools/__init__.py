@@ -37,6 +37,11 @@ from .diagnostics import (
     webex_health_check,
 )
 
+from .webhooks import (
+    list_webex_webhooks, create_webex_webhook, get_webex_webhook,
+    update_webex_webhook, delete_webex_webhook,
+)
+
 __all__ = [
     # Room functions
     'list_webex_rooms', 'create_webex_room', 'update_webex_room',
@@ -66,4 +71,7 @@ __all__ = [
     'delete_webex_team_membership',
     # Diagnostic tools
     'webex_health_check',
+    # Webhook functions
+    'list_webex_webhooks', 'create_webex_webhook', 'get_webex_webhook',
+    'update_webex_webhook', 'delete_webex_webhook',
 ]
