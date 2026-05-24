@@ -75,10 +75,8 @@ def list_webex_memberships(
             params['personId'] = person_id
         if person_email:
             params['personEmail'] = person_email
-        if max_results:
-            params['max'] = max_results
-
-        memberships = [_membership_to_dict(m) for m in get_webex_api().memberships.list(**params)]
+        max_limit = max_results if max_results is not None else 100
+        memberships = [_membership_to_dict(m) for m in get_webex_api().memberships.list(**params)[:max_limit]]
         return create_success_response(
             data={'memberships': memberships},
             metadata={'count': len(memberships), 'filters_applied': params}

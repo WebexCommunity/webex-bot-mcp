@@ -43,6 +43,10 @@ from webex_bot_mcp.tools.common import (              # noqa: E402
 )
 from webex_bot_mcp.config import WebexConfig          # noqa: E402
 import webex_bot_mcp.tools.messages as _msg_mod      # noqa: E402
+from webex_bot_mcp.tools.rooms import list_webex_rooms          # noqa: E402
+from webex_bot_mcp.tools.memberships import list_webex_memberships  # noqa: E402
+import webex_bot_mcp.tools.rooms as _rooms_mod                  # noqa: E402
+import webex_bot_mcp.tools.memberships as _mem_mod              # noqa: E402
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -674,6 +678,111 @@ class TestBuildWebexAdaptiveCard(unittest.TestCase):
                 room_id="R1", fallback_text="Test Card", **card
             )
         self.assertTrue(r['success'])
+
+
+# ── Pagination / early-stop tests ────────────────────────────────────────────
+
+def _fake_room(i=0):
+    m = MagicMock()
+    m.id = f"R{i}"
+    m.title = f"Room {i}"
+    m.type = "group"
+    m.isLocked = False
+    m.lastActivity = "2024-01-01T00:00:00Z"
+    m.created = "2024-01-01T00:00:00Z"
+    m.creatorId = "creator"
+    m.teamId = None
+    m.sipAddress = None
+    m.description = None
+    m.isPublic = None
+    m.isAnnouncementOnly = None
+    m.ownerId = None
+    m.classificationId = None
+    return m
+
+
+def _fake_membership(i=0):
+    m = MagicMock()
+    m.id = f"M{i}"
+    m.roomId = "R1"
+    m.personId = f"P{i}"
+    m.personEmail = f"user{i}@example.com"
+    m.personDisplayName = f"User {i}"
+    m.personOrgId = "ORG"
+    m.isModerator = False
+    m.isMonitor = None
+    m.isRoomHidden = None
+    m.created = "2024-01-01T00:00:00Z"
+    return m
+
+
+class TestListPagination(unittest.TestCase):
+    """Verify that list operations stop early at max_results instead of
+    exhausting the entire SDK generator."""
+
+    def test_list_messages_default_stops_at_50(self):
+        mock_api = MagicMock()
+        mock_api.messages.list.return_value = [_fake_message() for _ in range(200)]
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_messages(room_id="R1")
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 50)
+
+    def test_list_messages_custom_max_results(self):
+        mock_api = MagicMock()
+        mock_api.messages.list.return_value = [_fake_message() for _ in range(200)]
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_messages(room_id="R1", max_results=10)
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 10)
+
+    def test_list_messages_fewer_than_default_returns_all(self):
+        mock_api = MagicMock()
+        mock_api.messages.list.return_value = [_fake_message() for _ in range(5)]
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_messages(room_id="R1")
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 5)
+
+    def test_list_rooms_default_stops_at_100(self):
+        mock_api = MagicMock()
+        mock_api.rooms.list.return_value = [_fake_room(i) for i in range(300)]
+        with patch.object(_rooms_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_rooms()
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 100)
+
+    def test_list_rooms_custom_max_results(self):
+        mock_api = MagicMock()
+        mock_api.rooms.list.return_value = [_fake_room(i) for i in range(300)]
+        with patch.object(_rooms_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_rooms(max_results=25)
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 25)
+
+    def test_list_rooms_fewer_than_default_returns_all(self):
+        mock_api = MagicMock()
+        mock_api.rooms.list.return_value = [_fake_room(i) for i in range(3)]
+        with patch.object(_rooms_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_rooms()
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 3)
+
+    def test_list_memberships_default_stops_at_100(self):
+        mock_api = MagicMock()
+        mock_api.memberships.list.return_value = [_fake_membership(i) for i in range(300)]
+        with patch.object(_mem_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_memberships(room_id="R1")
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 100)
+
+    def test_list_memberships_custom_max_results(self):
+        mock_api = MagicMock()
+        mock_api.memberships.list.return_value = [_fake_membership(i) for i in range(300)]
+        with patch.object(_mem_mod, 'get_webex_api', return_value=mock_api):
+            r = list_webex_memberships(room_id="R1", max_results=15)
+        self.assertTrue(r['success'])
+        self.assertEqual(r['metadata']['count'], 15)
 
 
 if __name__ == '__main__':

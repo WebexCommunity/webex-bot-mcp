@@ -49,6 +49,9 @@ def _room_to_dict(room) -> Dict[str, Any]:
     return d
 
 
+_DEFAULT_ROOMS_MAX = 100
+
+
 def list_webex_rooms(
     team_id: Optional[str] = None,
     room_type: Optional[str] = None,
@@ -62,7 +65,7 @@ def list_webex_rooms(
         team_id: Optional team ID to filter rooms by team
         room_type: Optional room type filter ('direct' or 'group')
         sort_by: Optional sort order ('id', 'lastactivity', 'created')
-        max_results: Optional maximum number of rooms to return (default 100, max 1000)
+        max_results: Maximum number of rooms to return (default 100, max 1000)
 
     Returns:
         Standardized response dictionary with success/error information
@@ -75,10 +78,9 @@ def list_webex_rooms(
             params['type'] = room_type
         if sort_by:
             params['sortBy'] = sort_by
-        if max_results:
-            params['max'] = max_results
 
-        rooms_list = [_room_to_dict(r) for r in get_webex_api().rooms.list(**params)]
+        max_limit = max_results if max_results is not None else _DEFAULT_ROOMS_MAX
+        rooms_list = [_room_to_dict(r) for r in get_webex_api().rooms.list(**params)[:max_limit]]
         return create_success_response(
             data={'rooms': rooms_list},
             metadata={'count': len(rooms_list), 'filters_applied': params}

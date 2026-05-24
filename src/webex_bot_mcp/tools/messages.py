@@ -376,10 +376,8 @@ def list_webex_messages(
             params['before'] = before
         if before_message:
             params['beforeMessage'] = before_message
-        if max_results:
-            params['max'] = max_results
-
-        messages_response = get_webex_api().messages.list(**params)
+        max_limit = max_results if max_results is not None else 50
+        messages_response = get_webex_api().messages.list(**params)[:max_limit]
         messages_list = [_message_to_dict(m) for m in messages_response]
 
         return create_success_response(
