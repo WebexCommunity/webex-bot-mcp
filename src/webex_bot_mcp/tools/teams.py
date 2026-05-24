@@ -1,5 +1,16 @@
 """
 Webex Teams management tools.
+
+Bot-access model (verified against the Webex API):
+- Bots CANNOT create teams — POST /teams returns 401 for bot tokens regardless of scopes.
+  Team creation requires a human user token or an OAuth integration token.
+- Bots can only SEE teams they have been explicitly added to by a human user.
+  list_webex_teams returns an empty list until the bot is invited to at least one team.
+- Read operations (list, get, list memberships) work once the bot is a team member.
+- Write operations (update, delete team; add, delete members) require the bot to hold
+  the team moderator role within that team.
+- To add the bot to a team, a human user must do so via the Webex UI or a user/integration
+  token calling POST /team/memberships.
 """
 from typing import Optional, Dict, Any
 from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes, WebexTokenMissingError
@@ -13,12 +24,18 @@ def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
         return create_error_response(WebexErrorCodes.UNAUTHORIZED,
                                      "Invalid or expired bot token.")
     if 'not found' in error_str or '404' in error_str:
-        return create_error_response(WebexErrorCodes.NOT_FOUND,
-                                     "Team or membership not found.")
+        return create_error_response(
+            WebexErrorCodes.NOT_FOUND,
+            "Team or membership not found. Note: bots can only access teams they have "
+            "been added to — a human user must invite the bot to the team first."
+        )
     if 'forbidden' in error_str or '403' in error_str:
-        return create_error_response(WebexErrorCodes.FORBIDDEN,
-                                     "Bot lacks permission for this operation. "
-                                     "Ensure the bot has moderator privileges.")
+        return create_error_response(
+            WebexErrorCodes.FORBIDDEN,
+            "Bot lacks permission for this operation. Team write operations "
+            "(update, delete, add/remove members) require the bot to have the "
+            "moderator role within the team."
+        )
     if 'rate limit' in error_str or 'too many requests' in error_str:
         return create_error_response(WebexErrorCodes.RATE_LIMITED,
                                      "API rate limit exceeded. Please retry after delay.",
@@ -45,7 +62,7 @@ def _team_to_dict(t) -> Dict[str, Any]:
 
 
 def _team_membership_to_dict(m) -> Dict[str, Any]:
-    d: Dict[str, Any] = {
+    return {
         'id': m.id,
         'teamId': m.teamId,
         'personId': m.personId,
@@ -55,7 +72,6 @@ def _team_membership_to_dict(m) -> Dict[str, Any]:
         'isModerator': m.isModerator,
         'created': m.created,
     }
-    return d
 
 
 def list_webex_teams(
@@ -63,7 +79,11 @@ def list_webex_teams(
     max_results: Optional[int] = None
 ) -> Dict[str, Any]:
     """
-    List Webex teams the authenticated bot belongs to.
+    List Webex teams the bot belongs to.
+
+    Bot access note: only teams the bot has been explicitly added to are returned.
+    If the list is empty, a human user must invite the bot to one or more teams first.
+    Teams cannot be created by a bot — use a user/integration token for that.
 
     Args:
         display_name: Filter teams by display name (optional)
@@ -88,37 +108,12 @@ def list_webex_teams(
         return _map_exception_to_error(e)
 
 
-def create_webex_team(
-    name: str,
-    description: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Create a new Webex team.
-
-    Args:
-        name: Name of the team (required)
-        description: Description of the team (optional)
-
-    Returns:
-        Standardized response dictionary with success/error information
-    """
-    try:
-        params: Dict[str, Any] = {'name': name}
-        if description:
-            params['description'] = description
-
-        team = get_webex_api().teams.create(**params)
-        return create_success_response(
-            data={'team': _team_to_dict(team)},
-            metadata={'operation': 'create_team', 'parameters_used': params}
-        )
-    except Exception as e:
-        return _map_exception_to_error(e)
-
-
 def get_webex_team(team_id: str) -> Dict[str, Any]:
     """
     Get detailed information about a specific Webex team.
+
+    Bot access note: the bot must be a member of the team. If the team exists but the
+    bot has not been added to it, this will return a not-found error.
 
     Args:
         team_id: Team ID to get details for (required)
@@ -143,6 +138,9 @@ def update_webex_team(
 ) -> Dict[str, Any]:
     """
     Update an existing Webex team's name and/or description.
+
+    Bot access note: the bot must be a team moderator. If the bot is only a regular
+    member, this operation will fail with a forbidden error.
 
     Args:
         team_id: Team ID to update (required)
@@ -182,6 +180,9 @@ def delete_webex_team(team_id: str) -> Dict[str, Any]:
     """
     Delete a Webex team.
 
+    Bot access note: the bot must be a team moderator. If the bot is only a regular
+    member, this operation will fail with a forbidden error.
+
     Args:
         team_id: Team ID to delete (required)
 
@@ -209,6 +210,9 @@ def list_webex_team_memberships(
 ) -> Dict[str, Any]:
     """
     List members of a Webex team.
+
+    Bot access note: the bot must be a member of the team. If the bot has not been
+    added to the team, this will return a not-found error.
 
     Args:
         team_id: Team ID to list members for (required)
@@ -239,6 +243,9 @@ def add_webex_team_membership(
 ) -> Dict[str, Any]:
     """
     Add a person to a Webex team.
+
+    Bot access note: the bot must be a team moderator to add members. If the bot is
+    only a regular member, this operation will fail with a forbidden error.
 
     Args:
         team_id: Team ID to add person to (required)
@@ -278,9 +285,12 @@ def delete_webex_team_membership(membership_id: str) -> Dict[str, Any]:
     """
     Remove a person from a Webex team by deleting their team membership.
 
+    Bot access note: the bot must be a team moderator to remove members. If the bot is
+    only a regular member, this operation will fail with a forbidden error.
+    Use list_webex_team_memberships to find the membership ID for a person.
+
     Args:
-        membership_id: Team membership ID to delete (required). Use
-                       list_webex_team_memberships to find the membership ID.
+        membership_id: Team membership ID to delete (required)
 
     Returns:
         Standardized response dictionary with success/error information

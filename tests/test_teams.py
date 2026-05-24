@@ -26,7 +26,6 @@ if "dotenv" not in sys.modules:
 import webex_bot_mcp.tools.teams as _teams_mod  # noqa: E402
 from webex_bot_mcp.tools.teams import (          # noqa: E402
     list_webex_teams,
-    create_webex_team,
     get_webex_team,
     update_webex_team,
     delete_webex_team,
@@ -133,43 +132,6 @@ class TestListWebexTeams(unittest.TestCase):
             r = list_webex_teams()
         self.assertIn('timestamp', r)
         self.assertNotEqual(r['timestamp'], '')
-
-
-# ── create_webex_team ─────────────────────────────────────────────────────────
-
-class TestCreateWebexTeam(unittest.TestCase):
-    def test_creates_team_with_name(self):
-        mock_api = MagicMock()
-        mock_api.teams.create.return_value = _fake_team()
-        with patch.object(_teams_mod, 'get_webex_api', return_value=mock_api):
-            r = create_webex_team(name="My Team")
-        self.assertTrue(r['success'])
-        mock_api.teams.create.assert_called_once_with(name="My Team")
-
-    def test_creates_team_with_description(self):
-        mock_api = MagicMock()
-        mock_api.teams.create.return_value = _fake_team()
-        with patch.object(_teams_mod, 'get_webex_api', return_value=mock_api):
-            r = create_webex_team(name="My Team", description="A description")
-        self.assertTrue(r['success'])
-        call_kwargs = mock_api.teams.create.call_args[1]
-        self.assertEqual(call_kwargs['description'], "A description")
-
-    def test_returns_team_in_data(self):
-        mock_api = MagicMock()
-        mock_api.teams.create.return_value = _fake_team(name="Created Team")
-        with patch.object(_teams_mod, 'get_webex_api', return_value=mock_api):
-            r = create_webex_team(name="Created Team")
-        self.assertIn('team', r['data'])
-        self.assertEqual(r['data']['team']['name'], "Created Team")
-
-    def test_api_error_returns_structured_error(self):
-        mock_api = MagicMock()
-        mock_api.teams.create.side_effect = Exception("unauthorized")
-        with patch.object(_teams_mod, 'get_webex_api', return_value=mock_api):
-            r = create_webex_team(name="Fail")
-        self.assertFalse(r['success'])
-        self.assertEqual(r['error_code'], 'E401')
 
 
 # ── get_webex_team ────────────────────────────────────────────────────────────
@@ -449,6 +411,33 @@ class TestDeleteWebexTeamMembership(unittest.TestCase):
             r = delete_webex_team_membership("MEMBERSHIPID")
         self.assertIn('timestamp', r)
         self.assertNotEqual(r['timestamp'], '')
+
+
+# ── bot access model ──────────────────────────────────────────────────────────
+
+class TestBotAccessModel(unittest.TestCase):
+    def test_create_webex_team_not_exported(self):
+        import webex_bot_mcp.tools as tools_pkg
+        self.assertFalse(hasattr(tools_pkg, 'create_webex_team'),
+                         "create_webex_team must not be exported: bots cannot create teams")
+
+    def test_not_found_error_mentions_membership(self):
+        mock_api = MagicMock()
+        mock_api.teams.get.side_effect = Exception("404 not found")
+        with patch.object(_teams_mod, 'get_webex_api', return_value=mock_api):
+            r = get_webex_team("TEAMID")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], 'E404')
+        self.assertIn('member', r['message'].lower())
+
+    def test_forbidden_error_mentions_moderator(self):
+        mock_api = MagicMock()
+        mock_api.teams.update.side_effect = Exception("403 forbidden")
+        with patch.object(_teams_mod, 'get_webex_api', return_value=mock_api):
+            r = update_webex_team("TEAMID", name="X")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], 'E403')
+        self.assertIn('moderator', r['message'].lower())
 
 
 if __name__ == '__main__':
