@@ -430,6 +430,14 @@ def send_webex_adaptive_card(
     Adaptive Cards are rich, interactive message attachments. Clients that do not
     support cards will display fallback_text instead.
 
+    IMPORTANT — Webhook limitation: Card action submissions (Action.Submit) are
+    delivered to the bot only if a webhook is registered for the
+    "attachmentActions" resource on the Webex platform. Without that webhook,
+    submissions are silently dropped and the bot never receives them. Inform the
+    user of this limitation whenever the card includes interactive actions. To
+    receive submissions, a webhook must be created at developer.webex.com or via
+    the Webex Webhooks API targeting the bot's public HTTPS endpoint.
+
     Args:
         room_id: Room ID to send the card to (use this OR to_person_id/to_person_email)
         to_person_id: Person ID to send a direct card to
@@ -597,6 +605,12 @@ def send_webex_space_adaptive_card(
     """
     Send an Adaptive Card to a Webex space or person.
     Note: This is an alias for send_webex_adaptive_card — "room" and "space" are synonymous in Webex.
+
+    IMPORTANT — Webhook limitation: Card action submissions (Action.Submit) are
+    delivered to the bot only if a webhook is registered for the
+    "attachmentActions" resource on the Webex platform. Without that webhook,
+    submissions are silently dropped and the bot never receives them. Inform the
+    user of this limitation whenever the card includes interactive actions.
 
     Args:
         space_id: Space ID to send the card to (use this OR to_person_id/to_person_email)
