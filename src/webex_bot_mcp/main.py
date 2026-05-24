@@ -16,6 +16,9 @@ import argparse
 import json
 from datetime import datetime
 from dotenv import load_dotenv
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 # Load .env before importing tools so WEBEX_ACCESS_TOKEN is available at import time
 load_dotenv()
@@ -51,6 +54,23 @@ from webex_bot_mcp.tools import (
 from webex_bot_mcp.tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
 
 webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
+
+
+class WebexAuthMiddleware(BaseHTTPMiddleware):
+    """Enforce Bearer token auth on all MCP requests; expose /health unauthenticated."""
+
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health":
+            return Response('{"status":"ok"}', media_type="application/json")
+        auth = request.headers.get("authorization", "")
+        if not auth.lower().startswith("bearer ") or not auth[7:].strip():
+            return Response(
+                "Authorization: Bearer <webex_bot_token> header required",
+                status_code=401,
+                headers={"WWW-Authenticate": 'Bearer realm="Webex Bot MCP"'},
+            )
+        return await call_next(request)
+
 
 # Initialize FastMCP with a name for the bot
 mcp = FastMCP("Webex Bot MCP")
@@ -1288,7 +1308,12 @@ def main():
     args = parser.parse_args()
 
     if args.transport == "streamable-http":
-        mcp.run(transport="streamable-http", host=args.host, port=args.port)
+        mcp.run(
+            transport="streamable-http",
+            host=args.host,
+            port=args.port,
+            middleware=[Middleware(WebexAuthMiddleware)],
+        )
     else:
         mcp.run()
 

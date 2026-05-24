@@ -2,10 +2,12 @@
 Webex People management tools.
 """
 from typing import Optional, Dict, Any
-from .common import webex_api, create_error_response, create_success_response, WebexErrorCodes
+from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes, WebexTokenMissingError
 
 
 def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
+    if isinstance(e, WebexTokenMissingError):
+        return create_error_response(WebexErrorCodes.UNAUTHORIZED, str(e))
     error_str = str(e).lower()
     if 'unauthorized' in error_str or 'invalid token' in error_str:
         return create_error_response(WebexErrorCodes.UNAUTHORIZED,
@@ -59,7 +61,7 @@ def get_webex_me() -> Dict[str, Any]:
         Standardized response dictionary with success/error information
     """
     try:
-        me = webex_api.people.me()
+        me = get_webex_api().people.me()
         return create_success_response(data={'user': _person_to_dict(me)})
     except Exception as e:
         return _map_exception_to_error(e)
@@ -106,7 +108,7 @@ def list_webex_people(
         if max_results:
             params['max'] = max_results
 
-        people = [_person_to_dict(p) for p in webex_api.people.list(**params)]
+        people = [_person_to_dict(p) for p in get_webex_api().people.list(**params)]
         return create_success_response(
             data={'people': people},
             metadata={'count': len(people), 'filters_applied': params}

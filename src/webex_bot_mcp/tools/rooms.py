@@ -2,10 +2,12 @@
 Webex Room/Space management tools.
 """
 from typing import Optional, Dict, Any
-from .common import webex_api, create_error_response, create_success_response, WebexErrorCodes
+from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes, WebexTokenMissingError
 
 
 def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
+    if isinstance(e, WebexTokenMissingError):
+        return create_error_response(WebexErrorCodes.UNAUTHORIZED, str(e))
     error_str = str(e).lower()
     if 'unauthorized' in error_str or 'invalid token' in error_str:
         return create_error_response(WebexErrorCodes.UNAUTHORIZED,
@@ -76,7 +78,7 @@ def list_webex_rooms(
         if max_results:
             params['max'] = max_results
 
-        rooms_list = [_room_to_dict(r) for r in webex_api.rooms.list(**params)]
+        rooms_list = [_room_to_dict(r) for r in get_webex_api().rooms.list(**params)]
         return create_success_response(
             data={'rooms': rooms_list},
             metadata={'count': len(rooms_list), 'filters_applied': params}
@@ -134,7 +136,7 @@ def create_webex_room(
         if description:
             params['description'] = description
 
-        room = webex_api.rooms.create(**params)
+        room = get_webex_api().rooms.create(**params)
         return create_success_response(
             data={'room': _room_to_dict(room)},
             metadata={'operation': 'create_room', 'parameters_used': params}
@@ -198,7 +200,7 @@ def update_webex_room(
                 message="Must specify at least one field to update."
             )
 
-        room = webex_api.rooms.update(roomId=room_id, **params)
+        room = get_webex_api().rooms.update(roomId=room_id, **params)
         return create_success_response(
             data={'room': _room_to_dict(room)},
             metadata={'operation': 'update_room', 'room_id': room_id, 'parameters_used': params}
@@ -218,7 +220,7 @@ def get_webex_room(room_id: str) -> Dict[str, Any]:
         Standardized response dictionary with success/error information
     """
     try:
-        room = webex_api.rooms.get(roomId=room_id)
+        room = get_webex_api().rooms.get(roomId=room_id)
         return create_success_response(
             data={'room': _room_to_dict(room)},
             metadata={'room_id': room_id}
@@ -243,7 +245,7 @@ def delete_webex_room(room_id: str) -> Dict[str, Any]:
                 error_code=WebexErrorCodes.INVALID_ARGUMENTS,
                 message="room_id is required"
             )
-        webex_api.rooms.delete(roomId=room_id)
+        get_webex_api().rooms.delete(roomId=room_id)
         return create_success_response(
             data={'deleted': True, 'room_id': room_id},
             metadata={'operation': 'delete_room'}

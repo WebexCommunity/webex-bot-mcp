@@ -12,8 +12,8 @@ from dataclasses import dataclass
 class WebexConfig:
     """Configuration class for Webex Bot MCP Server"""
 
-    # Required settings
-    access_token: str
+    # Optional for HTTP transport (token comes per-request via Authorization header)
+    access_token: str = ""
 
     # Optional settings with defaults
     debug: bool = False
@@ -37,10 +37,7 @@ class WebexConfig:
     def from_env(cls) -> 'WebexConfig':
         """Create configuration from environment variables"""
 
-        # Required settings
-        access_token = os.getenv("WEBEX_ACCESS_TOKEN")
-        if not access_token:
-            raise ValueError("WEBEX_ACCESS_TOKEN environment variable is required")
+        access_token = os.getenv("WEBEX_ACCESS_TOKEN", "")
 
         # Optional settings
         return cls(
@@ -90,9 +87,6 @@ class WebexConfig:
     def validate(self) -> list[str]:
         """Validate configuration and return list of issues"""
         issues = []
-
-        if not self.access_token:
-            issues.append("WEBEX_ACCESS_TOKEN is required")
 
         if self.rate_limit_messages_per_second <= 0:
             issues.append("Rate limit for messages per second must be positive")

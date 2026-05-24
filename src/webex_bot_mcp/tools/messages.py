@@ -2,7 +2,7 @@
 Webex Message management tools.
 """
 from typing import Optional, Dict, Any, List
-from .common import webex_api, create_error_response, create_success_response, WebexErrorCodes
+from .common import get_webex_api, create_error_response, create_success_response, WebexErrorCodes, WebexTokenMissingError
 
 
 def format_mention_by_email(email: str, display_name: Optional[str] = None) -> str:
@@ -67,6 +67,8 @@ def create_message_with_mentions(
 
 def _map_exception_to_error(e: Exception) -> Dict[str, Any]:
     """Map a caught exception to a structured error response."""
+    if isinstance(e, WebexTokenMissingError):
+        return create_error_response(WebexErrorCodes.UNAUTHORIZED, str(e))
     error_str = str(e).lower()
     if 'rate limit' in error_str or 'too many requests' in error_str:
         return create_error_response(
@@ -139,7 +141,7 @@ def _build_message_params(
     files: Optional[str],
     parent_id: Optional[str],
 ) -> Dict[str, Any]:
-    """Assemble the keyword-argument dict for webex_api.messages.create."""
+    """Assemble the keyword-argument dict for get_webex_api().messages.create."""
     params: Dict[str, Any] = {}
     if room_id:
         params['roomId'] = room_id
@@ -254,7 +256,7 @@ def send_webex_message(
             room_id, to_person_id, to_person_email,
             text, markdown, html, files, parent_id
         )
-        message = webex_api.messages.create(**params)
+        message = get_webex_api().messages.create(**params)
 
         return create_success_response(
             data=_message_to_dict(message),
@@ -328,7 +330,7 @@ def send_webex_message_with_mentions(
             room_id, to_person_id, to_person_email,
             text, markdown, html, files, parent_id
         )
-        message = webex_api.messages.create(**params)
+        message = get_webex_api().messages.create(**params)
 
         return create_success_response(
             data=_message_to_dict(message),
@@ -377,7 +379,7 @@ def list_webex_messages(
         if max_results:
             params['max'] = max_results
 
-        messages_response = webex_api.messages.list(**params)
+        messages_response = get_webex_api().messages.list(**params)
         messages_list = [_message_to_dict(m) for m in messages_response]
 
         return create_success_response(
@@ -405,7 +407,7 @@ def delete_webex_message(message_id: str) -> Dict[str, Any]:
                 error_code=WebexErrorCodes.INVALID_ARGUMENTS,
                 message="message_id is required"
             )
-        webex_api.messages.delete(messageId=message_id)
+        get_webex_api().messages.delete(messageId=message_id)
         return create_success_response(
             data={'deleted': True, 'message_id': message_id},
             metadata={'operation': 'delete_message'}
@@ -533,7 +535,7 @@ def send_webex_adaptive_card(
         if parent_id:
             params['parentId'] = parent_id
 
-        message = webex_api.messages.create(**params)
+        message = get_webex_api().messages.create(**params)
 
         return create_success_response(
             data=_message_to_dict(message),

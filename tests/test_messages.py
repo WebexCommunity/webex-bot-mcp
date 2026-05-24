@@ -145,7 +145,7 @@ class TestCreateMessageWithMentions(unittest.TestCase):
 class TestSendWebexMessageValidation(unittest.TestCase):
     def _send(self, **kwargs):
         mock_api = MagicMock()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             return send_webex_message(**kwargs)
 
     def test_missing_destination_is_e001(self):
@@ -171,7 +171,7 @@ class TestSendWebexMessageValidation(unittest.TestCase):
     def test_files_string_wrapped_in_list(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             send_webex_message(room_id="ROOMID", files="https://example.com/f.pdf")
         call_kwargs = mock_api.messages.create.call_args[1]
         self.assertIsInstance(call_kwargs['files'], list)
@@ -180,7 +180,7 @@ class TestSendWebexMessageValidation(unittest.TestCase):
     def test_success_has_nonempty_timestamp(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = send_webex_message(room_id="ROOMID", text="hello")
         self.assertTrue(r['success'])
         self.assertIn('timestamp', r)
@@ -189,14 +189,14 @@ class TestSendWebexMessageValidation(unittest.TestCase):
     def test_room_id_routed_to_roomid_param(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             send_webex_message(room_id="ROOMID", text="hi")
         self.assertEqual(mock_api.messages.create.call_args[1]['roomId'], "ROOMID")
 
     def test_person_email_routed_correctly(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             send_webex_message(to_person_email="user@example.com", text="hi")
         self.assertEqual(
             mock_api.messages.create.call_args[1]['toPersonEmail'], "user@example.com"
@@ -208,7 +208,7 @@ class TestSendWebexMessageValidation(unittest.TestCase):
 class TestSendWebexMessageWithMentions(unittest.TestCase):
     def _send(self, **kwargs):
         mock_api = MagicMock()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             return send_webex_message_with_mentions(**kwargs)
 
     def test_missing_destination_is_e001(self):
@@ -224,7 +224,7 @@ class TestSendWebexMessageWithMentions(unittest.TestCase):
     def test_mention_prepended_to_markdown(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             send_webex_message_with_mentions(
                 room_id="ROOMID",
                 markdown="update",
@@ -245,7 +245,7 @@ class TestListWebexMessages(unittest.TestCase):
     def test_returns_structured_data(self):
         mock_api = MagicMock()
         mock_api.messages.list.return_value = [_fake_message()]
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = list_webex_messages(room_id="ROOMID")
         self.assertTrue(r['success'])
         self.assertIn('messages', r['data'])
@@ -254,7 +254,7 @@ class TestListWebexMessages(unittest.TestCase):
     def test_empty_room_returns_empty_list(self):
         mock_api = MagicMock()
         mock_api.messages.list.return_value = []
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = list_webex_messages(room_id="ROOMID")
         self.assertTrue(r['success'])
         self.assertEqual(r['data']['messages'], [])
@@ -300,10 +300,11 @@ class TestConfig(unittest.TestCase):
         cfg = WebexConfig(access_token="tok")
         self.assertEqual(cfg.validate(), [])
 
-    def test_missing_token_fails(self):
+    def test_empty_token_has_no_issues(self):
+        # Token is optional in config; HTTP transport receives it per-request
         cfg = WebexConfig(access_token="")
         issues = cfg.validate()
-        self.assertTrue(any("WEBEX_ACCESS_TOKEN" in i for i in issues))
+        self.assertFalse(any("WEBEX_ACCESS_TOKEN" in i for i in issues))
 
     def test_warning_log_level_accepted(self):
         cfg = WebexConfig(access_token="tok", log_level="WARNING")
@@ -330,11 +331,12 @@ class TestConfig(unittest.TestCase):
         self.assertNotIn("supersecret", str(d))
         self.assertTrue(d["access_token_configured"])
 
-    def test_from_env_raises_if_token_missing(self):
+    def test_from_env_succeeds_without_token(self):
+        # Token is optional; HTTP transport receives it per-request via Authorization header
         env_backup = os.environ.pop("WEBEX_ACCESS_TOKEN", None)
         try:
-            with self.assertRaises(ValueError):
-                WebexConfig.from_env()
+            cfg = WebexConfig.from_env()
+            self.assertEqual(cfg.access_token, "")
         finally:
             if env_backup:
                 os.environ["WEBEX_ACCESS_TOKEN"] = env_backup
@@ -349,7 +351,7 @@ _MINIMAL_ACTIONS = [{"type": "Action.OpenUrl", "title": "Open", "url": "https://
 def _send_card(**kwargs):
     mock_api = MagicMock()
     mock_api.messages.create.return_value = _fake_message()
-    with patch.object(_msg_mod, 'webex_api', mock_api):
+    with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
         result = send_webex_adaptive_card(**kwargs)
     return result, mock_api
 
@@ -509,7 +511,7 @@ class TestSendWebexAdaptiveCard(unittest.TestCase):
     def test_api_exception_returns_error_response(self):
         mock_api = MagicMock()
         mock_api.messages.create.side_effect = Exception("network error")
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = send_webex_adaptive_card(room_id="R1", fallback_text="hi", card_body=_MINIMAL_BODY)
         self.assertFalse(r['success'])
         self.assertIn('error_code', r)
@@ -520,7 +522,7 @@ class TestSendWebexSpaceAdaptiveCard(unittest.TestCase):
     def test_delegates_space_id_as_room_id(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = send_webex_space_adaptive_card(
                 space_id="SID", fallback_text="hi", card_body=_MINIMAL_BODY
             )
@@ -529,7 +531,7 @@ class TestSendWebexSpaceAdaptiveCard(unittest.TestCase):
 
     def test_missing_destination_returns_e001(self):
         mock_api = MagicMock()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = send_webex_space_adaptive_card(fallback_text="hi", card_body=_MINIMAL_BODY)
         self.assertFalse(r['success'])
         self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_ARGUMENTS)
@@ -537,7 +539,7 @@ class TestSendWebexSpaceAdaptiveCard(unittest.TestCase):
     def test_to_person_email_passes_through(self):
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = send_webex_space_adaptive_card(
                 to_person_email="u@x.com", fallback_text="hi", card_body=_MINIMAL_BODY
             )
@@ -667,7 +669,7 @@ class TestBuildWebexAdaptiveCard(unittest.TestCase):
         self.assertIn('card_actions', card)
         mock_api = MagicMock()
         mock_api.messages.create.return_value = _fake_message()
-        with patch.object(_msg_mod, 'webex_api', mock_api):
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
             r = send_webex_adaptive_card(
                 room_id="R1", fallback_text="Test Card", **card
             )

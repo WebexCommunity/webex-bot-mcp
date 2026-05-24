@@ -18,6 +18,11 @@ from webex_bot_mcp.tools.common import webex_api
 
 def check_api_connectivity() -> Dict[str, Any]:
     """Test basic API connectivity and authentication"""
+    if webex_api is None:
+        return {
+            "status": "skipped",
+            "note": "WEBEX_ACCESS_TOKEN not set; API checks require a token (HTTP transport uses per-request tokens)"
+        }
     try:
         me = webex_api.people.me()
         return {
@@ -26,7 +31,7 @@ def check_api_connectivity() -> Dict[str, Any]:
             "bot_name": me.displayName,
             "bot_email": me.emails[0] if me.emails else "unknown",
             "org_id": me.orgId,
-            "response_time_ms": 0  # Would need timing logic
+            "response_time_ms": 0
         }
     except Exception as e:
         return {
@@ -38,8 +43,13 @@ def check_api_connectivity() -> Dict[str, Any]:
 
 def check_room_access() -> Dict[str, Any]:
     """Check bot's access to rooms"""
+    if webex_api is None:
+        return {
+            "status": "skipped",
+            "note": "WEBEX_ACCESS_TOKEN not set; room checks require a token"
+        }
     try:
-        rooms = list(webex_api.rooms.list(max=10))  # Limit to 10 for health check
+        rooms = list(webex_api.rooms.list(max=10))
 
         room_types = {}
         for room in rooms:
@@ -94,16 +104,18 @@ def check_message_capability() -> Dict[str, Any]:
 
 def check_environment() -> Dict[str, Any]:
     """Check environment configuration"""
+    token_configured = bool(os.getenv("WEBEX_ACCESS_TOKEN"))
     checks = {
-        "webex_access_token": bool(os.getenv("WEBEX_ACCESS_TOKEN")),
+        # Token is optional for HTTP transport (supplied per-request via Bearer header)
+        "webex_access_token": "env" if token_configured else "per-request",
         "debug_mode": os.getenv("WEBEX_DEBUG", "false").lower() == "true",
         "python_version": sys.version,
         "working_directory": os.getcwd(),
         "timestamp": datetime.now().isoformat()
     }
 
-    # Check for optional environment variables
     optional_vars = [
+        "WEBEX_ACCESS_TOKEN",
         "WEBEX_RATE_LIMIT_MESSAGES_PER_SECOND",
         "WEBEX_RATE_LIMIT_API_CALLS_PER_MINUTE",
         "LOG_LEVEL",
@@ -116,10 +128,10 @@ def check_environment() -> Dict[str, Any]:
         env_vars[var.lower()] = value if value else "not_set"
 
     return {
-        "status": "healthy" if checks["webex_access_token"] else "unhealthy",
+        "status": "healthy",
         "checks": checks,
         "environment_variables": env_vars,
-        "missing_required": [] if checks["webex_access_token"] else ["WEBEX_ACCESS_TOKEN"]
+        "missing_required": []
     }
 
 
