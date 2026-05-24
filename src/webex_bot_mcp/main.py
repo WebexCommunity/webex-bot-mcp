@@ -53,6 +53,8 @@ from webex_bot_mcp.tools import (
     update_webex_team, delete_webex_team,
     list_webex_team_memberships, add_webex_team_membership,
     delete_webex_team_membership,
+    # Diagnostic tools
+    webex_health_check,
 )
 
 # Import version and error handling from common
@@ -134,6 +136,9 @@ mcp.tool()(delete_webex_team)
 mcp.tool()(list_webex_team_memberships)
 mcp.tool()(add_webex_team_membership)
 mcp.tool()(delete_webex_team_membership)
+
+# Diagnostic tools
+mcp.tool()(webex_health_check)
 
 
 # ========== RESOURCES ==========
@@ -1117,7 +1122,7 @@ def server_version():
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 34,
+        "tools_count": 35,
         "resources_count": 11,
         "prompts_count": 8,
         "breaking_changes": {
