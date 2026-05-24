@@ -211,6 +211,36 @@ Webex supports up to **version 1.3**. Use the default ("1.3") unless you need to
 | `Action.ShowCard` | Expand an inline nested card |
 | `Action.ToggleVisibility` | Show/hide elements by ID |
 
+## ⚠️ Webhook Limitation — Card Submissions
+
+**Action.Submit (and any interactive card action) requires a registered webhook to work.**
+
+When a user clicks a submit button on an Adaptive Card, Webex posts the submission
+payload to the bot's registered webhook for the `attachmentActions` resource. If no
+such webhook exists, **the submission is silently dropped** — the bot never sees it.
+
+This MCP server can *send* cards but cannot *receive* webhook events on its own. Before
+using interactive cards (forms, approval buttons, etc.), the user must:
+
+1. Expose a public HTTPS endpoint that can receive POST requests from Webex.
+2. Register a webhook via the Webex Webhooks API:
+   ```
+   POST https://webexapis.com/v1/webhooks
+   {
+     "name": "Card Actions",
+     "targetUrl": "https://your-bot.example.com/webhook",
+     "resource": "attachmentActions",
+     "event": "created"
+   }
+   ```
+3. Parse the incoming `attachmentAction` payload in the bot's webhook handler.
+
+**Always inform the user of this requirement when the card contains Action.Submit,
+Input.*, or any other interactive element that posts data back to the bot.**
+
+Non-interactive actions (`Action.OpenUrl`, `Action.ShowCard`, `Action.ToggleVisibility`)
+work entirely on the client side and do **not** require a webhook.
+
 ## Workflow: Build then Send
 
 ### Option A — High-level builder (recommended)
@@ -919,7 +949,8 @@ Destination: {room_id}
 
 Follow these steps:
 
-1. Read the webex://help/adaptive-cards resource for schema reference.
+1. Read the webex://help/adaptive-cards resource for schema reference, including the
+   Webhook Limitation section.
 
 2. Call build_webex_adaptive_card with appropriate inputs:
    - title: concise, action-oriented heading
@@ -936,7 +967,15 @@ Follow these steps:
    - card_body and card_actions from step 2
    - fallback_text: a plain-text summary for clients that don't support cards
 
-5. Report the message ID and a summary of what was sent.
+5. IMPORTANT — if the card contains any interactive actions (Action.Submit, Input.*
+   elements, or any action that posts data back to the bot), explicitly warn the user:
+   "Card submissions will not reach the bot unless you have registered an
+   attachmentActions webhook pointing at your bot's public HTTPS endpoint. See the
+   webex://help/adaptive-cards guide for setup instructions."
+   Skip this warning only if all actions are non-interactive (Action.OpenUrl,
+   Action.ShowCard, Action.ToggleVisibility).
+
+6. Report the message ID and a summary of what was sent.
 
 If the use case requires custom schema elements not supported by build_webex_adaptive_card
 (e.g. Input fields, nested ShowCard actions), construct card_body manually as a list of
