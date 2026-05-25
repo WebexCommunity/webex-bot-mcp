@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/WebexCommunity/webex-bot-mcp/compare/webex-bot-mcp-v0.2.0...webex-bot-mcp-v0.3.0) (2026-05-25)
+
+
+### Features
+
+* ALB health check endpoint and AWS deployment guide ([c987492](https://github.com/WebexCommunity/webex-bot-mcp/commit/c9874922e9875b48c645822cfddc5b02a0ac79f0))
+* **teams:** add 8 Webex Teams API tools ([cedd516](https://github.com/WebexCommunity/webex-bot-mcp/commit/cedd516586f006f1f26ed74062c1f4965e89100d))
+
+
+### Bug Fixes
+
+* correct Dockerfile for src layout and update health check ([c59dddf](https://github.com/WebexCommunity/webex-bot-mcp/commit/c59dddf2deb14faf30354385bb31232317920e5b))
+* pre-PR review fixes — token error routing, health check crash, Dockerfile ([04f0c8c](https://github.com/WebexCommunity/webex-bot-mcp/commit/04f0c8c3cebba36f85d28a5898255b14dd12d7c1))
+* **teams:** remove create_webex_team; add bot-access guidance ([d0db9d8](https://github.com/WebexCommunity/webex-bot-mcp/commit/d0db9d860db59df3eb9afcdfab6ca227062c7820))
+
+
+### Documentation
+
+* **cards:** warn that Action.Submit requires a registered webhook ([694cac2](https://github.com/WebexCommunity/webex-bot-mcp/commit/694cac289f1ba896017dc7ccacd3dfde56915fa8))
+
 ## [0.2.0](https://github.com/WebexCommunity/webex-bot-mcp/compare/webex-bot-mcp-v0.1.1...webex-bot-mcp-v0.2.0) (2026-05-23)
 
 
