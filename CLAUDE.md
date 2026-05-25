@@ -29,9 +29,13 @@ src/webex_bot_mcp/
                        Adaptive Card send/build tools
     memberships.py   — Membership CRUD (list, add, update, delete) + space aliases
     people.py        — get_webex_me, list_webex_people
+    teams.py         — Team tools (list, get, update, delete) + team membership tools
+                       Note: create_webex_team is intentionally absent — bots cannot
+                       create teams (Webex returns 401); only user/integration tokens can.
 
 tests/
   test_messages.py   — Unit tests (85 cases); mocks webexpythonsdk at sys.modules level
+  test_teams.py      — Unit tests (40 cases); same mock pattern
 
 .github/
   workflows/
@@ -44,10 +48,15 @@ tests/
 ## Key Conventions
 
 ### Tool count
-27 tools total: 5 room + 5 space-room aliases + 4 message + 2 space-message aliases +
+34 tools total: 5 room + 5 space-room aliases + 4 message + 2 space-message aliases +
 2 adaptive-card + 1 adaptive-card-space alias + 1 adaptive-card-builder +
-4 membership + 2 space-membership aliases + 2 people.
+4 membership + 2 space-membership aliases + 2 people +
+4 team + 3 team-membership.
 Update `tools_count` in the `server_version` resource (`src/webex_bot_mcp/main.py`) when adding tools.
+
+Note: `create_webex_team` is intentionally not implemented. Bots cannot create teams —
+the Webex platform returns 401 for `POST /teams` with bot tokens regardless of scopes.
+Only user tokens or OAuth integrations with `spark:teams_write` can create teams.
 
 ### Error handling — always use structured responses
 Every tool must return via `create_error_response` or `create_success_response` from

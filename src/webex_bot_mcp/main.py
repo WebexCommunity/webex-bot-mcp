@@ -48,6 +48,11 @@ from webex_bot_mcp.tools import (
     list_webex_space_memberships, add_webex_space_membership,
     # People functions
     get_webex_me, list_webex_people,
+    # Team functions
+    list_webex_teams, get_webex_team,
+    update_webex_team, delete_webex_team,
+    list_webex_team_memberships, add_webex_team_membership,
+    delete_webex_team_membership,
 )
 
 # Import version and error handling from common
@@ -118,6 +123,17 @@ mcp.tool()(add_webex_space_membership)
 # People management tools
 mcp.tool()(get_webex_me)
 mcp.tool()(list_webex_people)
+
+# Team management tools
+mcp.tool()(list_webex_teams)
+mcp.tool()(get_webex_team)
+mcp.tool()(update_webex_team)
+mcp.tool()(delete_webex_team)
+
+# Team membership tools
+mcp.tool()(list_webex_team_memberships)
+mcp.tool()(add_webex_team_membership)
+mcp.tool()(delete_webex_team_membership)
 
 
 # ========== RESOURCES ==========
@@ -333,6 +349,89 @@ result = send_webex_adaptive_card(
 ## Reference
 - Adaptive Cards schema explorer: https://adaptivecards.io/explorer/
 - Webex card samples: https://developer.webex.com/docs/api/guides/cards
+"""
+
+
+@mcp.resource("webex://help/teams")
+def webex_teams_guide():
+    """Bot access model and guidance for Webex Teams tools"""
+    return """# Webex Teams — Bot Access Guide
+
+## What is a Team in Webex?
+
+A team is a named group of people with a shared set of rooms. Teams are a higher-level
+construct than rooms: a team contains rooms, and all team members can see every room in
+the team. The team membership and team room membership are separate concepts.
+
+## Bot Access Model (Verified Against the Webex API)
+
+Bot tokens operate under stricter rules than user or integration tokens for the Teams API.
+Understanding these rules prevents confusing errors.
+
+### What bots CAN do
+
+| Tool | Requirement |
+|------|-------------|
+| `list_webex_teams` | Bot is a member of at least one team |
+| `get_webex_team` | Bot is a member of that team |
+| `list_webex_team_memberships` | Bot is a member of that team |
+| `update_webex_team` | Bot has the **moderator** role in that team |
+| `delete_webex_team` | Bot has the **moderator** role in that team |
+| `add_webex_team_membership` | Bot has the **moderator** role in that team |
+| `delete_webex_team_membership` | Bot has the **moderator** role in that team |
+
+### What bots CANNOT do
+
+| Operation | Reason |
+|-----------|--------|
+| **Create a team** | Hard platform restriction — `POST /teams` returns 401 for bot tokens regardless of scopes. This is not an error in the MCP; it is enforced by the Webex platform. |
+
+`create_webex_team` is intentionally not implemented in this MCP server. To create a
+team, use a personal access token or an OAuth integration with the `spark:teams_write`
+scope.
+
+## Getting the Bot Into a Team
+
+Before any team tool will work, a human user must add the bot to the team:
+
+1. **Via Webex UI**: Open the team in the Webex app → Members → Add member → paste the
+   bot's email address (visible in `get_webex_me`).
+2. **Via API with a user token**:
+   ```
+   POST https://webexapis.com/v1/team/memberships
+   { "teamId": "<id>", "personEmail": "<bot-email>", "isModerator": true }
+   ```
+   Set `isModerator: true` if you want the bot to be able to update the team or manage
+   members.
+
+## Understanding 404 vs 403 Errors
+
+- **404 "not found"** from a team tool usually means the bot is not a member of the team,
+  not that the team ID is wrong. Verify the bot has been added first.
+- **403 "forbidden"** from a write tool means the bot is a regular member but not a
+  moderator. Upgrade the bot's role in the team to moderator.
+
+## Typical Workflow
+
+```
+1. list_webex_teams()
+   → Empty? A human must add the bot to a team first (see above).
+
+2. list_webex_teams()
+   → Returns teams the bot belongs to. Pick a team_id.
+
+3. get_webex_team(team_id)
+   → Confirm team details.
+
+4. list_webex_team_memberships(team_id)
+   → See who is in the team. Check bot's isModerator value.
+
+5. add_webex_team_membership(team_id, person_email="...", is_moderator=False)
+   → Requires bot to be a moderator.
+
+6. delete_webex_team_membership(membership_id)
+   → Requires bot to be a moderator.
+```
 """
 
 
@@ -1018,7 +1117,7 @@ def server_version():
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 27,
+        "tools_count": 34,
         "resources_count": 11,
         "prompts_count": 8,
         "breaking_changes": {
