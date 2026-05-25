@@ -1117,6 +1117,184 @@ Adaptive Card element dicts and call send_webex_adaptive_card directly."""
     }
 
 
+@mcp.prompt("webex-setup-webhook")
+def webex_setup_webhook_prompt():
+    """Register a new Webex webhook for a specific resource and event"""
+    return {
+        "name": "Set Up Webhook",
+        "description": "Register a Webex webhook to receive real-time event notifications at a public HTTPS endpoint",
+        "arguments": [
+            {
+                "name": "target_url",
+                "description": "Publicly reachable HTTPS URL that will receive POST notifications from Webex",
+                "required": True
+            },
+            {
+                "name": "resource",
+                "description": "Webex resource to watch: messages, rooms, memberships, attachmentActions, or meetings",
+                "required": True
+            },
+            {
+                "name": "event",
+                "description": "Event type: created, updated, deleted, or all",
+                "required": True
+            },
+            {
+                "name": "filter",
+                "description": "Optional filter expression, e.g. roomId=<id> to scope messages to one room",
+                "required": False
+            },
+            {
+                "name": "secret",
+                "description": "Optional signing secret — Webex will include an X-Spark-Signature header so your endpoint can verify authenticity",
+                "required": False
+            }
+        ],
+        "template": """Register a Webex webhook with the following configuration.
+
+Target URL: {target_url}
+Resource:   {resource}
+Event:      {event}
+Filter:     {filter or "none"}
+Secret:     {secret or "none (consider adding one for production)"}
+
+Follow these steps:
+
+1. BEFORE registering, verify the prerequisites:
+   - The target URL must be publicly reachable over HTTPS. Localhost or private
+     addresses will not work — Webex cannot reach them.
+   - Confirm the resource/event combination is valid:
+       resource values: messages, rooms, memberships, attachmentActions, meetings
+       event values:    created, updated, deleted, all
+
+2. Call create_webex_webhook with:
+   - name: a short descriptive label (e.g. "Messages – Room XYZ")
+   - target_url, resource, event as provided above
+   - filter if specified (e.g. "roomId=<id>" to scope to one room)
+   - secret if specified
+
+3. After creation, display the new webhook ID and status.
+
+4. IMPORTANT — secret handling:
+   If a secret was provided, remind the user:
+   "Store this secret securely. Your endpoint must compute
+   HMAC-SHA1(secret, raw_request_body) and compare it to the
+   X-Spark-Signature header on every incoming request to verify
+   the payload came from Webex."
+
+5. Special case — attachmentActions:
+   If resource is "attachmentActions", add this note:
+   "This webhook is required for Adaptive Card form submissions to reach
+   your bot. Without it, card button clicks are silently dropped by Webex."
+
+6. Report a summary: webhook ID, name, resource, event, status, and target URL."""
+    }
+
+
+@mcp.prompt("webex-rotate-webhook-secret")
+def webex_rotate_webhook_secret_prompt():
+    """Rotate the signing secret on an existing Webex webhook"""
+    return {
+        "name": "Rotate Webhook Secret",
+        "description": "Fetch an existing webhook and update it with a new signing secret without changing other settings",
+        "arguments": [
+            {
+                "name": "webhook_id",
+                "description": "ID of the webhook whose secret should be rotated",
+                "required": True
+            },
+            {
+                "name": "new_secret",
+                "description": "New signing secret to set on the webhook",
+                "required": True
+            }
+        ],
+        "template": """Rotate the signing secret on webhook {webhook_id}.
+
+New secret: {new_secret}
+
+Follow these steps exactly:
+
+1. Call get_webex_webhook(webhook_id="{webhook_id}") to retrieve the current
+   name and targetUrl — both are required by the Webex API on every update.
+
+2. Verify the webhook exists and is active. If it is inactive, ask the user
+   whether to re-enable it (status="active") as part of this update.
+
+3. Call update_webex_webhook with:
+   - webhook_id: "{webhook_id}"
+   - name: (the name returned in step 1, unchanged)
+   - target_url: (the targetUrl returned in step 1, unchanged)
+   - secret: "{new_secret}"
+
+4. Confirm the update succeeded and display the webhook ID, name, and status.
+
+5. Remind the user of the required receiver-side change:
+   "Update your webhook endpoint to sign payloads with the new secret.
+   Compute HMAC-SHA1(new_secret, raw_request_body) and compare it to the
+   X-Spark-Signature header on incoming requests. Deploy the updated
+   receiver BEFORE the secret rotation goes live to avoid verification failures."
+
+6. If the old secret was used in multiple environments (staging, production),
+   prompt the user to rotate each environment's copy separately."""
+    }
+
+
+@mcp.prompt("webex-audit-webhooks")
+def webex_audit_webhooks_prompt():
+    """Audit all registered webhooks and surface cleanup recommendations"""
+    return {
+        "name": "Audit Webhooks",
+        "description": "List all registered webhooks, group them by status and resource, flag potential issues, and recommend cleanup actions",
+        "arguments": [
+            {
+                "name": "focus",
+                "description": "Optional focus area: 'security' (secrets, HTTPS), 'cleanup' (inactive, duplicates), or 'full' (default)",
+                "required": False
+            }
+        ],
+        "template": """Perform a webhook audit. Focus: {focus or "full"}
+
+Steps:
+
+1. Call list_webex_webhooks() to retrieve all registered webhooks.
+
+2. Group and summarise the results:
+   - Total webhook count
+   - Active vs inactive breakdown
+   - Group by resource type (messages, rooms, memberships, attachmentActions, meetings)
+   - Group by event type (created, updated, deleted, all)
+
+3. Flag potential issues (always check all of these):
+
+   SECURITY
+   - Webhooks with no secret set (missing X-Spark-Signature verification)
+   - Target URLs using plain HTTP instead of HTTPS
+   - Target URLs pointing at localhost, 127.x, 10.x, 192.168.x, or 172.16–31.x
+     (private addresses Webex cannot reach in production)
+
+   HYGIENE
+   - Inactive webhooks (status != "active") — confirm with user before deleting
+   - Duplicate webhooks: same resource + event + filter combination registered more than once
+   - Webhooks with generic or missing names that make auditing difficult
+
+   COVERAGE
+   - If any adaptive cards are in use (attachmentActions resource not covered),
+     note that card submissions will be silently dropped without that webhook
+
+4. Present findings as a table:
+   | ID | Name | Resource | Event | Status | Target URL | Issues |
+
+5. Provide a prioritised recommendation list:
+   - P1 (fix now): HTTP targets, missing secrets on production webhooks
+   - P2 (clean up): inactive webhooks, duplicates
+   - P3 (nice to have): rename vague webhooks, add missing attachmentActions coverage
+
+6. Offer to execute any recommended actions (delete inactive, add secrets, etc.)
+   but DO NOT perform destructive actions without explicit user confirmation."""
+    }
+
+
 # ========== VERSION & METADATA RESOURCES ==========
 
 @mcp.resource("webex://meta/version")
@@ -1134,7 +1312,7 @@ def server_version():
         ],
         "tools_count": 40,
         "resources_count": 11,
-        "prompts_count": 8,
+        "prompts_count": 11,
         "breaking_changes": {
             "1.0.0": [
                 "Initial release with structured error handling",
