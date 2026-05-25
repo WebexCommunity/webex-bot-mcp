@@ -1120,6 +1120,124 @@ Adaptive Card element dicts and call send_webex_adaptive_card directly."""
     }
 
 
+@mcp.prompt("webex-handle-card-submission")
+def webex_handle_card_submission_prompt():
+    """Process an Adaptive Card form submission received by the bot application"""
+    return {
+        "name": "Handle Card Submission",
+        "description": (
+            "Given an action_id from an attachmentActions webhook your bot application "
+            "already received, fetch the submitted form data and act on it — reply to "
+            "the room, update the original message, or route the inputs to a workflow."
+        ),
+        "arguments": [
+            {
+                "name": "action_id",
+                "description": (
+                    "The attachment action ID from payload[\"data\"][\"id\"] in the "
+                    "webhook POST your bot application received from Webex"
+                ),
+                "required": True
+            },
+            {
+                "name": "intended_action",
+                "description": (
+                    "What to do with the submitted data, e.g. "
+                    "\"approve the request and notify the room\", "
+                    "\"store the feedback and confirm to the user\", "
+                    "\"update the original card message with the outcome\""
+                ),
+                "required": True
+            }
+        ],
+        "template": """Process an Adaptive Card form submission.
+
+IMPORTANT — how action_id reaches you:
+This MCP server cannot receive inbound webhook events. Your separate bot
+application received a POST from Webex at its registered webhook endpoint and
+extracted the action_id from payload["data"]["id"]. That ID is what you are
+working with now.
+
+Action ID: {action_id}
+Intended action: {intended_action}
+
+Steps:
+
+1. Call get_webex_attachment_action(action_id="{action_id}") to retrieve the
+   full submission. The response data contains:
+   - inputs: dict of form field values the user submitted
+   - messageId: the card message that was interacted with
+   - roomId: the room where the interaction happened
+   - personId: the person who submitted the card
+
+2. Inspect the inputs dict and summarise what the user submitted.
+
+3. Carry out the intended action: {intended_action}
+   Common patterns:
+   - Send a confirmation: call send_webex_message(room_id=roomId, markdown="...")
+   - Update the original card message: call update_webex_message(
+       message_id=messageId, markdown="...outcome summary...")
+   - Both: update the card to show it is resolved, then send a threaded reply
+     with details using parent_id=messageId
+
+4. Report what was done: the action_id, the inputs received, and the actions taken.
+
+If get_webex_attachment_action returns a 404, the action_id may be wrong or
+the bot token may not have access to that action. Confirm the ID came from a
+webhook payload for the attachmentActions resource (event: created) and that
+the webhook was registered via create_webex_webhook."""
+    }
+
+
+@mcp.prompt("webex-edit-message")
+def webex_edit_message_prompt():
+    """Correct or update an existing Webex message by its ID"""
+    return {
+        "name": "Edit Message",
+        "description": (
+            "Update the content of an existing Webex message — fix a typo, "
+            "change a status, or replace stale information — using update_webex_message."
+        ),
+        "arguments": [
+            {
+                "name": "message_id",
+                "description": "ID of the message to edit",
+                "required": True
+            },
+            {
+                "name": "new_content",
+                "description": "The replacement text or markdown to put in the message",
+                "required": True
+            },
+            {
+                "name": "reason",
+                "description": "Optional: why the message is being edited (for your own context)",
+                "required": False
+            }
+        ],
+        "template": """Edit an existing Webex message.
+
+Message ID:   {message_id}
+New content:  {new_content}
+Reason:       {reason or "not specified"}
+
+Steps:
+
+1. Call update_webex_message with:
+   - message_id: "{message_id}"
+   - markdown: the corrected content (preferred), or text if plain text is sufficient
+
+   Note: only the bot or user that sent the original message can edit it.
+   A 403 means the bot did not send that message; a 404 means the ID is wrong
+   or the message has been deleted.
+
+2. Confirm the update succeeded and show the new content that was set.
+
+If the new content contains formatting (bold, lists, links), pass it as
+markdown. If it is plain text only, either parameter works."""
+    }
+
+
 @mcp.prompt("webex-setup-webhook")
 def webex_setup_webhook_prompt():
     """Register a new Webex webhook for a specific resource and event"""
@@ -1315,7 +1433,7 @@ def server_version():
         ],
         "tools_count": 42,
         "resources_count": 11,
-        "prompts_count": 11,
+        "prompts_count": 13,
         "breaking_changes": {
             "1.0.0": [
                 "Initial release with structured error handling",

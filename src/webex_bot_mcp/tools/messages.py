@@ -610,16 +610,27 @@ def get_webex_attachment_action(action_id: str) -> Dict[str, Any]:
     """
     Retrieve the form data submitted when a user clicks an Adaptive Card button.
 
-    The action_id comes from a webhook payload for the attachmentActions resource
-    (event: created). A webhook must be registered via create_webex_webhook with
-    resource="attachmentActions" and event="created" before card button clicks will
-    reach the bot — without a registered webhook, submissions are silently dropped
-    by Webex and the bot never receives an action_id.
+    This MCP server makes outbound calls to Webex — it does NOT receive inbound
+    webhook events. The action_id must be obtained externally: your own bot
+    application (a separate HTTP server with a public HTTPS endpoint) receives
+    the webhook POST from Webex, extracts the "id" field from the payload, and
+    then supplies that action_id here so this tool can fetch the full submission.
+
+    Flow:
+        1. User clicks a card button in Webex.
+        2. Webex POSTs the event to your bot's registered webhook endpoint.
+        3. Your bot extracts action_id from payload["data"]["id"].
+        4. Your bot (or an AI agent) calls this tool with that action_id.
+        5. This tool calls GET /attachment/actions/{id} and returns the inputs.
+
+    A webhook must be registered via create_webex_webhook with
+    resource="attachmentActions" and event="created" for step 2 to occur —
+    without it, card submissions are silently dropped by Webex.
 
     Args:
         action_id: ID of the attachment action to retrieve (required).
-                   Obtained from the "id" field of the webhook payload delivered
-                   when a user submits an Adaptive Card form.
+                   Comes from payload["data"]["id"] in the webhook POST your
+                   bot application receives from Webex.
 
     Returns:
         Standardized response dictionary with success/error information.
