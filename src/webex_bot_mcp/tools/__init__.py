@@ -33,6 +33,10 @@ from .teams import (
     delete_webex_team_membership,
 )
 
+from .diagnostics import (
+    webex_health_check,
+)
+
 __all__ = [
     # Room functions
     'list_webex_rooms', 'create_webex_room', 'update_webex_room',
@@ -60,4 +64,6 @@ __all__ = [
     'update_webex_team', 'delete_webex_team',
     'list_webex_team_memberships', 'add_webex_team_membership',
     'delete_webex_team_membership',
+    # Diagnostic tools
+    'webex_health_check',
 ]
