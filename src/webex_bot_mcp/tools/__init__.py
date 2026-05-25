@@ -12,6 +12,7 @@ from .rooms import (
 from .messages import (
     send_webex_message, send_webex_message_with_mentions,
     list_webex_messages, delete_webex_message,
+    update_webex_message, get_webex_attachment_action,
     send_webex_space_message, list_webex_space_messages,
     send_webex_adaptive_card, send_webex_space_adaptive_card,
     build_webex_adaptive_card,
@@ -52,6 +53,7 @@ __all__ = [
     # Message functions
     'send_webex_message', 'send_webex_message_with_mentions',
     'list_webex_messages', 'delete_webex_message',
+    'update_webex_message', 'get_webex_attachment_action',
     # Space message aliases
     'send_webex_space_message', 'list_webex_space_messages',
     # Adaptive card tools

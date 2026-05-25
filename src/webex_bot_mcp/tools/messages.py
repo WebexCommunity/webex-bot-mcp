@@ -553,6 +553,112 @@ def send_webex_adaptive_card(
         return _map_exception_to_error(e)
 
 
+def update_webex_message(
+    message_id: str,
+    text: Optional[str] = None,
+    markdown: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Edit an existing Webex message.
+
+    Only the bot or user that sent the original message may edit it.
+    At least one of text or markdown must be provided.
+
+    Args:
+        message_id: ID of the message to edit (required)
+        text: New plain text content
+        markdown: New markdown content
+
+    Returns:
+        Standardized response dictionary with success/error information
+    """
+    try:
+        if not message_id:
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_ARGUMENTS,
+                message="message_id is required"
+            )
+        if not (text or markdown):
+            return create_error_response(
+                error_code=WebexErrorCodes.MISSING_REQUIRED_FIELD,
+                message="At least one of text or markdown is required",
+                details={"required_one_of": ["text", "markdown"]}
+            )
+
+        params: Dict[str, Any] = {}
+        if text:
+            params['text'] = text
+        if markdown:
+            params['markdown'] = markdown
+
+        message = get_webex_api().messages.update(messageId=message_id, **params)
+
+        return create_success_response(
+            data=_message_to_dict(message),
+            metadata={
+                'operation': 'update_message',
+                'message_id': message_id,
+                'content_type': 'markdown' if markdown else 'text',
+            }
+        )
+
+    except Exception as e:
+        return _map_exception_to_error(e)
+
+
+def get_webex_attachment_action(action_id: str) -> Dict[str, Any]:
+    """
+    Retrieve the form data submitted when a user clicks an Adaptive Card button.
+
+    The action_id comes from a webhook payload for the attachmentActions resource
+    (event: created). A webhook must be registered via create_webex_webhook with
+    resource="attachmentActions" and event="created" before card button clicks will
+    reach the bot — without a registered webhook, submissions are silently dropped
+    by Webex and the bot never receives an action_id.
+
+    Args:
+        action_id: ID of the attachment action to retrieve (required).
+                   Obtained from the "id" field of the webhook payload delivered
+                   when a user submits an Adaptive Card form.
+
+    Returns:
+        Standardized response dictionary with success/error information.
+        The data dict contains the submitted form inputs under the "inputs" key,
+        along with the associated messageId, roomId, and personId.
+    """
+    try:
+        if not action_id:
+            return create_error_response(
+                error_code=WebexErrorCodes.INVALID_ARGUMENTS,
+                message="action_id is required"
+            )
+
+        action = get_webex_api().attachment_actions.get(action_id)
+
+        action_dict: Dict[str, Any] = {
+            'id': action.id,
+            'type': getattr(action, 'type', None),
+            'messageId': getattr(action, 'messageId', None),
+            'inputs': getattr(action, 'inputs', {}),
+            'roomId': getattr(action, 'roomId', None),
+            'personId': getattr(action, 'personId', None),
+            'created': (
+                action.created.isoformat()
+                if hasattr(action.created, 'isoformat')
+                else str(action.created)
+            ),
+        }
+        action_dict = {k: v for k, v in action_dict.items() if v is not None}
+
+        return create_success_response(
+            data=action_dict,
+            metadata={'operation': 'get_attachment_action', 'action_id': action_id}
+        )
+
+    except Exception as e:
+        return _map_exception_to_error(e)
+
+
 # Space message aliases — "room" and "space" are synonymous in Webex
 
 def send_webex_space_message(

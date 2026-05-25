@@ -36,6 +36,7 @@ from webex_bot_mcp.tools import (
     # Message functions
     send_webex_message, send_webex_message_with_mentions,
     list_webex_messages, delete_webex_message,
+    update_webex_message, get_webex_attachment_action,
     # Space message aliases
     send_webex_space_message, list_webex_space_messages,
     # Adaptive card tools
@@ -105,6 +106,8 @@ mcp.tool()(send_webex_message)
 mcp.tool()(send_webex_message_with_mentions)
 mcp.tool()(list_webex_messages)
 mcp.tool()(delete_webex_message)
+mcp.tool()(update_webex_message)
+mcp.tool()(get_webex_attachment_action)
 
 # Space message aliases
 mcp.tool()(send_webex_space_message)
@@ -1310,7 +1313,7 @@ def server_version():
             "streamable-http", "stdio",
             "error-handling", "versioning"
         ],
-        "tools_count": 40,
+        "tools_count": 42,
         "resources_count": 11,
         "prompts_count": 11,
         "breaking_changes": {
