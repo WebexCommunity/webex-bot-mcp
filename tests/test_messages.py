@@ -35,6 +35,8 @@ from webex_bot_mcp.tools.messages import (            # noqa: E402
     send_webex_adaptive_card,
     send_webex_space_adaptive_card,
     build_webex_adaptive_card,
+    update_webex_message,
+    get_webex_attachment_action,
 )
 from webex_bot_mcp.tools.common import (              # noqa: E402
     create_error_response,
@@ -674,6 +676,194 @@ class TestBuildWebexAdaptiveCard(unittest.TestCase):
                 room_id="R1", fallback_text="Test Card", **card
             )
         self.assertTrue(r['success'])
+
+
+# ── update_webex_message ──────────────────────────────────────────────────────
+
+class TestUpdateWebexMessage(unittest.TestCase):
+
+    def _update(self, **kwargs):
+        mock_api = MagicMock()
+        mock_api.messages.update.return_value = _fake_message()
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            result = update_webex_message(**kwargs)
+        return result, mock_api
+
+    def test_missing_message_id_returns_e001(self):
+        mock_api = MagicMock()
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = update_webex_message(message_id="", text="hi")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_ARGUMENTS)
+
+    def test_neither_text_nor_markdown_returns_e002(self):
+        mock_api = MagicMock()
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = update_webex_message(message_id="MSG1")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.MISSING_REQUIRED_FIELD)
+        self.assertIn('required_one_of', r['details'])
+
+    def test_text_only_succeeds(self):
+        r, mock_api = self._update(message_id="MSG1", text="updated text")
+        self.assertTrue(r['success'])
+        call_kwargs = mock_api.messages.update.call_args[1]
+        self.assertEqual(call_kwargs['messageId'], "MSG1")
+        self.assertEqual(call_kwargs['text'], "updated text")
+        self.assertNotIn('markdown', call_kwargs)
+
+    def test_markdown_only_succeeds(self):
+        r, mock_api = self._update(message_id="MSG1", markdown="**updated**")
+        self.assertTrue(r['success'])
+        call_kwargs = mock_api.messages.update.call_args[1]
+        self.assertEqual(call_kwargs['messageId'], "MSG1")
+        self.assertEqual(call_kwargs['markdown'], "**updated**")
+        self.assertNotIn('text', call_kwargs)
+
+    def test_both_text_and_markdown_sends_both(self):
+        r, mock_api = self._update(message_id="MSG1", text="plain", markdown="**rich**")
+        self.assertTrue(r['success'])
+        call_kwargs = mock_api.messages.update.call_args[1]
+        self.assertEqual(call_kwargs['text'], "plain")
+        self.assertEqual(call_kwargs['markdown'], "**rich**")
+
+    def test_success_response_shape(self):
+        r, _ = self._update(message_id="MSG1", text="hello")
+        self.assertTrue(r['success'])
+        self.assertIn('data', r)
+        self.assertEqual(r['metadata']['operation'], 'update_message')
+        self.assertEqual(r['metadata']['message_id'], 'MSG1')
+        self.assertEqual(r['metadata']['content_type'], 'text')
+
+    def test_markdown_sets_content_type_markdown(self):
+        r, _ = self._update(message_id="MSG1", markdown="**hi**")
+        self.assertEqual(r['metadata']['content_type'], 'markdown')
+
+    def test_api_exception_returns_error_response(self):
+        mock_api = MagicMock()
+        mock_api.messages.update.side_effect = Exception("not found")
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = update_webex_message(message_id="MSG1", text="hi")
+        self.assertFalse(r['success'])
+        self.assertIn('error_code', r)
+
+    def test_404_exception_maps_to_e404(self):
+        mock_api = MagicMock()
+        mock_api.messages.update.side_effect = Exception("404 not found")
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = update_webex_message(message_id="MISSING", text="hi")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.NOT_FOUND)
+
+    def test_unauthorized_exception_maps_to_e401(self):
+        mock_api = MagicMock()
+        mock_api.messages.update.side_effect = Exception("unauthorized")
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = update_webex_message(message_id="MSG1", text="hi")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.UNAUTHORIZED)
+
+    def test_response_contains_timestamp(self):
+        r, _ = self._update(message_id="MSG1", text="hi")
+        self.assertIn('timestamp', r)
+        self.assertNotEqual(r['timestamp'], '')
+
+
+# ── get_webex_attachment_action ───────────────────────────────────────────────
+
+class TestGetWebexAttachmentAction(unittest.TestCase):
+
+    def _fake_action(self, **overrides):
+        a = MagicMock()
+        a.id = "ACT1"
+        a.type = "submit"
+        a.messageId = "MSG1"
+        a.inputs = {"decision": "approve", "comment": "LGTM"}
+        a.roomId = "ROOM1"
+        a.personId = "PID1"
+        a.created = "2025-01-01T00:00:00Z"
+        for k, v in overrides.items():
+            setattr(a, k, v)
+        return a
+
+    def _get(self, action_id, action_obj=None):
+        mock_api = MagicMock()
+        mock_api.attachment_actions.get.return_value = (
+            action_obj if action_obj is not None else self._fake_action()
+        )
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            result = get_webex_attachment_action(action_id)
+        return result, mock_api
+
+    def test_missing_action_id_returns_e001(self):
+        mock_api = MagicMock()
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = get_webex_attachment_action("")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.INVALID_ARGUMENTS)
+
+    def test_success_response_shape(self):
+        r, _ = self._get("ACT1")
+        self.assertTrue(r['success'])
+        self.assertIn('data', r)
+        self.assertEqual(r['metadata']['operation'], 'get_attachment_action')
+        self.assertEqual(r['metadata']['action_id'], 'ACT1')
+
+    def test_sdk_called_with_action_id(self):
+        _, mock_api = self._get("ACT1")
+        mock_api.attachment_actions.get.assert_called_once_with("ACT1")
+
+    def test_inputs_present_in_data(self):
+        r, _ = self._get("ACT1")
+        self.assertIn('inputs', r['data'])
+        self.assertEqual(r['data']['inputs']['decision'], 'approve')
+
+    def test_message_id_in_data(self):
+        r, _ = self._get("ACT1")
+        self.assertEqual(r['data']['messageId'], 'MSG1')
+
+    def test_room_id_in_data(self):
+        r, _ = self._get("ACT1")
+        self.assertEqual(r['data']['roomId'], 'ROOM1')
+
+    def test_person_id_in_data(self):
+        r, _ = self._get("ACT1")
+        self.assertEqual(r['data']['personId'], 'PID1')
+
+    def test_none_fields_omitted_from_data(self):
+        action = self._fake_action(type=None)
+        r, _ = self._get("ACT1", action_obj=action)
+        self.assertTrue(r['success'])
+        self.assertNotIn('type', r['data'])
+
+    def test_datetime_created_converted_to_string(self):
+        from datetime import datetime
+        action = self._fake_action()
+        action.created = datetime(2025, 1, 1, 12, 0, 0)
+        r, _ = self._get("ACT1", action_obj=action)
+        self.assertTrue(r['success'])
+        self.assertIn('2025-01-01', r['data']['created'])
+
+    def test_api_exception_returns_error_response(self):
+        mock_api = MagicMock()
+        mock_api.attachment_actions.get.side_effect = Exception("network error")
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = get_webex_attachment_action("ACT1")
+        self.assertFalse(r['success'])
+        self.assertIn('error_code', r)
+
+    def test_404_exception_maps_to_e404(self):
+        mock_api = MagicMock()
+        mock_api.attachment_actions.get.side_effect = Exception("404 not found")
+        with patch.object(_msg_mod, 'get_webex_api', return_value=mock_api):
+            r = get_webex_attachment_action("MISSING")
+        self.assertFalse(r['success'])
+        self.assertEqual(r['error_code'], WebexErrorCodes.NOT_FOUND)
+
+    def test_response_contains_timestamp(self):
+        r, _ = self._get("ACT1")
+        self.assertIn('timestamp', r)
+        self.assertNotEqual(r['timestamp'], '')
 
 
 if __name__ == '__main__':
