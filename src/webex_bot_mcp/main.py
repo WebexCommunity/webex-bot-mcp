@@ -61,10 +61,15 @@ from webex_bot_mcp.tools import (
     update_webex_webhook, delete_webex_webhook,
 )
 
-# Import version and error handling from common
-from webex_bot_mcp.tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION
+# Import version, error handling, and logging setup from common
+from webex_bot_mcp.tools.common import MCP_SERVER_VERSION, MCP_SPEC_VERSION, setup_logging, log_tool_call
+from webex_bot_mcp.config import get_config
 
 webex_access_token = os.getenv("WEBEX_ACCESS_TOKEN")
+
+# Configure logging from environment before any tools run
+_cfg = get_config()
+setup_logging(log_level=_cfg.log_level, log_format=_cfg.log_format, debug=_cfg.debug)
 
 
 class WebexAuthMiddleware(BaseHTTPMiddleware):
@@ -86,72 +91,76 @@ class WebexAuthMiddleware(BaseHTTPMiddleware):
 # Initialize FastMCP with a name for the bot
 mcp = FastMCP("Webex Bot MCP")
 
-# Register all tools with FastMCP
+# Register all tools with FastMCP (wrapped with request/response logging)
+def _tool(func):
+    mcp.tool()(log_tool_call(func))
+
+
 # Room management tools
-mcp.tool()(list_webex_rooms)
-mcp.tool()(create_webex_room)
-mcp.tool()(update_webex_room)
-mcp.tool()(get_webex_room)
-mcp.tool()(delete_webex_room)
+_tool(list_webex_rooms)
+_tool(create_webex_room)
+_tool(update_webex_room)
+_tool(get_webex_room)
+_tool(delete_webex_room)
 
 # Space aliases (same functionality as rooms but with "space" terminology)
-mcp.tool()(list_webex_spaces)
-mcp.tool()(create_webex_space)
-mcp.tool()(update_webex_space)
-mcp.tool()(get_webex_space)
-mcp.tool()(delete_webex_space)
+_tool(list_webex_spaces)
+_tool(create_webex_space)
+_tool(update_webex_space)
+_tool(get_webex_space)
+_tool(delete_webex_space)
 
 # Message management tools
-mcp.tool()(send_webex_message)
-mcp.tool()(send_webex_message_with_mentions)
-mcp.tool()(list_webex_messages)
-mcp.tool()(delete_webex_message)
-mcp.tool()(update_webex_message)
-mcp.tool()(get_webex_attachment_action)
+_tool(send_webex_message)
+_tool(send_webex_message_with_mentions)
+_tool(list_webex_messages)
+_tool(delete_webex_message)
+_tool(update_webex_message)
+_tool(get_webex_attachment_action)
 
 # Space message aliases
-mcp.tool()(send_webex_space_message)
-mcp.tool()(list_webex_space_messages)
+_tool(send_webex_space_message)
+_tool(list_webex_space_messages)
 
 # Adaptive card tools
-mcp.tool()(send_webex_adaptive_card)
-mcp.tool()(send_webex_space_adaptive_card)
-mcp.tool()(build_webex_adaptive_card)
+_tool(send_webex_adaptive_card)
+_tool(send_webex_space_adaptive_card)
+_tool(build_webex_adaptive_card)
 
 # Membership management tools
-mcp.tool()(list_webex_memberships)
-mcp.tool()(add_webex_membership)
-mcp.tool()(update_webex_membership)
-mcp.tool()(delete_webex_membership)
+_tool(list_webex_memberships)
+_tool(add_webex_membership)
+_tool(update_webex_membership)
+_tool(delete_webex_membership)
 
 # Space membership aliases
-mcp.tool()(list_webex_space_memberships)
-mcp.tool()(add_webex_space_membership)
+_tool(list_webex_space_memberships)
+_tool(add_webex_space_membership)
 
 # People management tools
-mcp.tool()(get_webex_me)
-mcp.tool()(list_webex_people)
+_tool(get_webex_me)
+_tool(list_webex_people)
 
 # Team management tools
-mcp.tool()(list_webex_teams)
-mcp.tool()(get_webex_team)
-mcp.tool()(update_webex_team)
-mcp.tool()(delete_webex_team)
+_tool(list_webex_teams)
+_tool(get_webex_team)
+_tool(update_webex_team)
+_tool(delete_webex_team)
 
 # Team membership tools
-mcp.tool()(list_webex_team_memberships)
-mcp.tool()(add_webex_team_membership)
-mcp.tool()(delete_webex_team_membership)
+_tool(list_webex_team_memberships)
+_tool(add_webex_team_membership)
+_tool(delete_webex_team_membership)
 
 # Diagnostic tools
-mcp.tool()(webex_health_check)
+_tool(webex_health_check)
 
 # Webhook management tools
-mcp.tool()(list_webex_webhooks)
-mcp.tool()(create_webex_webhook)
-mcp.tool()(get_webex_webhook)
-mcp.tool()(update_webex_webhook)
-mcp.tool()(delete_webex_webhook)
+_tool(list_webex_webhooks)
+_tool(create_webex_webhook)
+_tool(get_webex_webhook)
+_tool(update_webex_webhook)
+_tool(delete_webex_webhook)
 
 
 # ========== RESOURCES ==========
