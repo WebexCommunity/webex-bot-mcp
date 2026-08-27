@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/WebexCommunity/webex-bot-mcp/compare/webex-bot-mcp-v0.3.0...webex-bot-mcp-v0.4.0) (2026-05-27)
+
+
+### Features
+
+* **diagnostics:** add webex_health_check MCP tool ([b5e0a30](https://github.com/WebexCommunity/webex-bot-mcp/commit/b5e0a30e7eeeeaec27280926d6df80263288cc5e))
+* **logging:** add structured request/response logging gated on WEBEX_DEBUG ([3cf094c](https://github.com/WebexCommunity/webex-bot-mcp/commit/3cf094c0379f7a6319387093abb4f6fd6a815d8c))
+* **messages:** add update_webex_message and get_webex_attachment_action tools ([2f726f8](https://github.com/WebexCommunity/webex-bot-mcp/commit/2f726f81206b1f3da34e455464654e4233442f4e))
+* **prompts:** add three webhook management prompt templates ([d598a12](https://github.com/WebexCommunity/webex-bot-mcp/commit/d598a12b560850b742a41f456c702e9a557c609d))
+* **webhooks:** add Webex Webhooks API tools ([8ff859b](https://github.com/WebexCommunity/webex-bot-mcp/commit/8ff859bed616b61fbe4ec839e6677e882d5fd25f))
+
+
+### Documentation
+
+* **messages:** clarify get_webex_attachment_action architecture; add prompts ([dc60f68](https://github.com/WebexCommunity/webex-bot-mcp/commit/dc60f685c45821e6ac075606793e3f26bb7b15e2))
+
 ## [0.3.0](https://github.com/WebexCommunity/webex-bot-mcp/compare/webex-bot-mcp-v0.2.0...webex-bot-mcp-v0.3.0) (2026-05-25)
 
 
